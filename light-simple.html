@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<html>
+  <style>
+    body, html{ margin: 0;}
+    .source{
+      fill: black;
+    }
+    .ray{
+      fill: yellow;
+      stroke-width: 1;
+      stroke: black;
+    }
+    g.light-icon{
+      fill: none;
+      stroke: black;
+      stroke-width: 6;
+    }
+  </style>
+  <body>
+    <svg>
+      <g class="light-icon">
+        <circle cx="0" cy="0" r="16"/>
+        <line x1="-39.75" y1="0.583" x2="-25.083" y2="0.583"/>
+        <line x1="25.083" y1="0.583" x2="39.75" y2="0.583"/>
+        <line x1="0" y1="-39.166" x2="0" y2="-24.5"/>
+        <line x1="0" y1="25.667" x2="0" y2="40.334"/>
+        <line x1="-28.107" y1="-27.524" x2="-17.737" y2="-17.153"/>
+        <line x1="17.737" y1="18.32" x2="28.107" y2="28.691"/>
+        <line x1="28.108" y1="-27.525" x2="17.738" y2="-17.154"/>
+        <line x1="-17.736" y1="18.319" x2="-28.106" y2="28.69"/>
+      </g>
+    </svg>
+    <script src="d3.js"></script>
+    <script>
+var w = window.innerWidth, h = window.innerHeight
+  , max = Math.max(w, h)
+  , m = max / 10
+  , svg = d3.select('svg').attr({width: w, height: h})
+  , translate = function(x,y){ return 'translate(' + x + ',' + y + ')' }
+
+// the light source
+var source = svg.append('g').attr('class', 'source')
+    .attr({ transform: translate(w / 2, h / 2) })
+  , n = 40
+  , lightIcon = svg.select('.light-icon')
+    .attr({ transform: translate(w / 2, h / 2) })
+
+    </script>
+  </body>
+</html>

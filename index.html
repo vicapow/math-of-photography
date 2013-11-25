@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+  <style>
+    body{
+      font-family: Helvetica;
+      max-width: 800px;
+      margin: auto;
+    }
+    iframe{
+      width: 100%;
+      border: none;
+    }
+    iframe.flat-circles-demo{
+      height: 200px;
+    }
+    iframe.light-demo{
+      height: 400px;
+    }
+    img{
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+  <body>
+    <h2>How does Photography work?</h2>
+    <p>
+      Do you really know? I bet you don't. We all have a general sense of what's happening. Your iPhone "takes" the image it "sees" which then gets loaded into your phone and displayed on your screen. Simple, right? But would you know where to start if you had to build your own? How are we able to look at a the flat array of pixels of our screen and perceive depth from it? These same concepts are also the backbone of 3D graphics and video games. Even our own eyeballs operate by the same principles.
+    </p>
+    <p>
+      At the core, photography is the problem of finding a way to present 3 dimensional geometry (the world) in a 2 dimensional space (the photograph) in a manner similar enough to the way our own eye performs the same task to trick it into believing what it's seeing is actually 3 dimensional. Said another way, we're trying to trick our eyes into believing we're observing depth on a flat surface (ie., paper, a canvas, a photograph, a computer screen, etc.) Lets take a look at an example of what we mean by that.
+    </p>
+    <iframe class="flat-circles-demo" src="flat-circles.html?sort=true"></iframe>
+    <p>
+      What you're looking at in the above example is really just two separate circles that are being moved and scaled along a 2D (X and Y) plane. They are not three dimensional objects. They have no depth and aren't actually getting closer to you but you "feel" as though they are, don't you? This is how we're wired. When we see an object getting larger, we believe (and are usually right in thinking) it's getting closer to us. Another component to the believe that we're looking at two rotating spheres and not two scaled circles is their order. When one gets "closer" its on top. It's interesting to notice how we interpret the scene when the balls are no longer sorted by their depth. Most see a closer small circle rotating in front of a larger one farther in the back.
+    </p>
+    <iframe class="flat-circles-demo" src="flat-circles.html?sort=false"></iframe>
+    <p>
+      Our eyes can be tricked using this scaling technique because of the way our eyes are built. Their construction is almost exactly the same as the forerunner to the modern photographic camera called the camera obscura, pictured bellow. It is, quite literally, nothing more than a piece of wood with a hole in it.
+    </p>
+
+    <img src="./camera-obscura.jpg"/>
+    <small style="float: right; clear:both">Photo by: <a target="_blank" href="http://commons.wikimedia.org/wiki/User:The_Bearded_Man">The Bearded Man</a> </small>
+
+    <p>
+        You might have noticed the effect yourself before, inside of a darkened room with a small hole, say, a key hole on a door, letting light in from another. The light will produce a mirrored and flipped image of the lit room on the wall of the dark room. The awesomeness of this invention is the interesting implications it has on the nature of light. Why does that happen? And why only with smaller holes? Why not larger ones? To answer this question, we have to first understand a bit about the nature of light and it's "bounciness".
+    </p>
+    <p>
+      All the things use see right now, are not actually things. They are the reflections (or bounces) of light off of those things from light sources (ie., the sun, a lamp, your computer's LED back-light et al) onto your retina. Without these light sources bouncing light off of objects you wouldn't be able to see! Similarly, if it wasn't for your eyes ability to absorb and detect light. Everything would be pitch black.
+    </p>
+    <p>
+      Bellow is an idealized, single point light source (or just "point light".) It gives us a good starting point to think about how light works. A real light source would be firing off light particles, or photons, in about the same way, expect _way_ faster and much more frequently. In this demo, a photon hits the observer every few seconds. In reality, our eye is constantly being bombarded with photons.
+    </p>
+    <iframe class="light-demo" src="light-3d.html"></iframe>
+    <p>
+      It also makes the rest of the conversation about light easier if we talk about the motion of these shooting photons as "rays" of light, since they always fly straight until they hit something and are absorbed or "bounce" off of something to be reflected. We're also, for the most part, only interested in the photos that actually make it to our eye.
+    </p>
+    <iframe class="light-demo" src="light-simple.html"></iframe>
+    <br>
+    <br>
+    <br>
+    <br>
+    <script src="d3.js"></script>
+    <script>
+    </script>
+  </body>
+</html>

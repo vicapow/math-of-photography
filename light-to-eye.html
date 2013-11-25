@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<html>
+  <style>
+    body, html{ margin: 0;}
+    .source{
+      fill: yellow;
+    }
+    .eye line, .eye path{
+      stroke: black;
+      stroke-width: 6;
+      fill: none;
+    }
+    .ray{
+      fill: yellow;
+    }
+  </style>
+  <body>
+    <svg>
+      <g class="eye">
+        <line x1="-126" y1="-48" x2="0" y2="0"/>
+        <line x1="0" y1="0" x2="-126" y2="48"/>
+        <path d="M-111.001-41.998c-23.195,0-41.998,18.803-41.998,41.998
+          s18.803,41.998,41.998,41.998"/>
+        <path d="M-150.999,14c4.05,0,5.333-6.268,5.333-14s-1.283-14-5.333-14"/>
+      </g>
+    </svg>
+    <script src="d3.js"></script>
+    <script>
+var w = window.innerWidth, h = window.innerHeight
+  , max = Math.max(w, h)
+  , m = max / 10
+  , svg = d3.select('svg').attr({width: w, height: h})
+  , translate = function(x,y){ return 'translate(' + x + ',' + y + ')' }
+
+// the light source
+var source = svg.append('g').attr('class', 'source')
+    .attr({ transform: translate(m, h / 2) })
+  , eye = svg.select('g.eye').attr({ transform: translate(w - m, h / 2) })
+  , n = 100
+  , rays = source.selectAll('.rays').data(d3.range(n).map(function(d){ return Math.PI * 4 * d / (n - 1) - Math.PI * 2}))
+    .enter().append('circle').attr({
+        class: 'ray'
+        , r: 10
+        , cx: function(d){ return 0 * Math.cos(d) }
+        , cy: function(d){ return 0 * Math.sin(d) }
+      })
+  , light = source.append('circle').attr({ class: 'source', r: 10 })
+
+rays.transition().duration(3000)
+  .attr({
+    cx: function(d){ return max * Math.cos(d) }
+    , cy: function(d){ return max * Math.sin(d) }
+  })
+
+    </script>
+  </body>
+</html>

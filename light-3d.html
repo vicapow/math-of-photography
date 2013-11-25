@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<html>
+  <style>
+    body, html{ margin: 0;}
+    .source{
+      fill: black;
+    }
+    .ray{
+      fill: rgba(255,255,0,0.8);
+      stroke-width: 1;
+      stroke: white;
+    }
+    .ray.hit{
+      fill: yellow;
+      stroke-width: 1;
+      stroke: white;
+    }
+    g.light-icon{
+      fill: rgba(255, 255, 0, 0.5);
+      stroke: rgba(0, 0, 0, 0.5);
+      stroke-width: 6;
+    }
+  </style>
+  <body>
+    <svg>
+      <g class="light-icon">
+        <circle cx="0" cy="0" r="16"/>
+        <line x1="-39.75" y1="0.583" x2="-25.083" y2="0.583"/>
+        <line x1="25.083" y1="0.583" x2="39.75" y2="0.583"/>
+        <line x1="0" y1="-39.166" x2="0" y2="-24.5"/>
+        <line x1="0" y1="25.667" x2="0" y2="40.334"/>
+        <line x1="-28.107" y1="-27.524" x2="-17.737" y2="-17.153"/>
+        <line x1="17.737" y1="18.32" x2="28.107" y2="28.691"/>
+        <line x1="28.108" y1="-27.525" x2="17.738" y2="-17.154"/>
+        <line x1="-17.736" y1="18.319" x2="-28.106" y2="28.69"/>
+      </g>
+    </svg>
+    <script src="d3.js"></script>
+    <script src="dz.js"></script>
+    <script>
+var w = window.innerWidth, h = window.innerHeight
+  , max = Math.max(w, h)
+  , m = max / 10
+  , svg = d3.select('svg').attr({width: w, height: h})
+  , translate = function(x,y){ return 'translate(' + x + ',' + y + ')' }
+
+// the light source
+var source = svg.append('g').attr('class', 'source')
+    .attr({ transform: translate(w / 2, h / 2) })
+  , r = 30
+  , s = 5
+  , p = dz.projection.perspective()
+  , rand = function(n){ return Math.random() * n }
+  , pi = Math.PI, tau = pi * 2
+  , max = Math.max(w, h), min = Math.min(w, h), diff = max - min
+  , ranges = [ [0, max] , [ - diff / 2, max - diff / 2] ]
+  , screenX = d3.scale.linear().domain([-1, 1]).range(ranges[w < h ? 1 : 0])
+  , screenY = d3.scale.linear().domain([1, -1]).range(ranges[w > h ? 1 : 0])
+  , cameraPos = [0, 0, s + 1]
+  , camera = p.camera().position(cameraPos)
+  , lightIcon = svg.select('.light-icon')
+    .attr({ transform: translate(w / 2, h / 2) })
+  // , rays = svg.selectAll('.rays').data(d3.range(n).map(function(){
+  //     return dz.matrix()
+  //       .rotateX(rand(tau))
+  //       .rotateY(rand(tau))
+  //       .rotateZ(rand(tau))
+  //       .multiVector([1, 0, 0])
+  //   })).enter().append('circle').attr('class', 'ray')
+  , vec_scale = function(v, s){ return [ v[0] * s, v[1] * s, v[2] * s ] }
+  , vec_add = function(v1, v2){ 
+    return [ v1[0] + v2[0], v1[1] + v2[1], v1[2] + v2[2] ] 
+  }
+
+// function loop(ray){
+//   var s = 10
+//   var done = 0
+//   ray.sort(function(a, b){ return p.depth(a) - p.depth(b) })
+//   ray.attr({
+//     r: function(d){ return p.scale(d) * r }
+//     , cx: function(d){ return screenX(p.x(d)) }
+//     , cy: function(d){ return screenY(p.y(d)) }
+//   }).transition().duration(5000).ease('linear').attr({
+//     r: function(d){ return p.scale(vec_scale(d, s)) * r }
+//     , cx: function(d){ return screenX(p.x(vec_scale(d, s))) }
+//     , cy: function(d){ return screenY(p.y(vec_scale(d, s))) }
+//   }).each('end', function(){
+//     if(++done !== n) return
+//     loop(rays)
+//   })
+// }
+// loop(rays)
+
+function randomDirection(){
+  // random unit circle direction
+  return dz.matrix()
+    .rotateX(rand(tau))
+    .rotateY(rand(tau))
+    .rotateZ(rand(tau))
+    .multiVector([1, 0, 0])
+}
+
+var t = 0, freq = 200, sort = 0
+d3.timer(function(){
+  t++
+  if(t % 10 !== 0) return
+  var direction;
+  if(t % freq !== 0) direction = randomDirection()
+  else direction = [0, 0, 1]
+  svg.append('circle').attr('class', t % freq !== 0 ? 'ray' : 'ray hit')
+    .datum({ dir: direction, pos: direction })
+    .transition().duration(1000).ease('linear').tween('custom', function(d){
+      var ray = d3.select(this)
+      var pos = [d.dir[0], d.dir[1], d.dir[2]]
+      return function(t){
+        var pp = vec_add(pos, vec_scale(d.dir, t * s))
+        d.pos = pp
+        ray.attr({
+          r : function(d){ return p.scale(pp) * r }
+          , cx : function(d){ return screenX(p.x(pp)) }
+          , cy : function(d){ return screenY(p.y(pp)) }
+        })
+        d3.selectAll('.ray').sort(function(a, b){ return p.depth(a.pos) - p.depth(b.pos) })
+      }
+    }).each('end', function(){ d3.select(this).remove() })
+})
+
+    </script>
+  </body>
+</html>

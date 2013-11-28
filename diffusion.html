@@ -11,12 +11,15 @@
       fill: none;
     }
     path.ray{
-      stroke-dasharray: 5, 4;
+      /*stroke-dasharray: 5, 4;*/
       stroke-width: 1;
-      opacity: 0.3;
+      stroke-linejoin: bevel;
+      opacity: 1;
+      stroke: blue;
     }
     .surface{
-      stroke-width: 3;
+      stroke-width: 2;
+      stroke: black;
     }
 
   </style>
@@ -31,6 +34,7 @@
       </g>
     </svg>
     <script src="d3.js"></script>
+    <script src="vec.js"></script> <!-- small library of vector functions -->
     <script>
 var w = window.innerWidth, h = window.innerHeight
   , max = Math.max(w, h), min = Math.min(w, h), pi = Math.PI, abs = Math.abs
@@ -39,118 +43,112 @@ var w = window.innerWidth, h = window.innerHeight
   , rand = function(n){ return Math.random() * n }
   , translate = function(x,y){ return 'translate(' + x + ',' + y + ')' }
   , line = d3.svg.line()
-  , n = 10, m = 0.0, num_rays = 10, ray_len = 10000
+  , n = 100, m = 0, num_rays = 1, ray_len = 10000
 
 
+
+// surface is an array of line segments of the form: [p1, p2]
+// so surface looks like: [ [p1, p2], [p2, p3], ... ]
+// where each `p*` is a ponit, described as a 2 element array. ie., [343, 253]
+/*
+var surface = [
+  [ // line segment 1
+      [ p1x, p2y ]
+    , [ p2x, p2y ]
+  ]
+  , [ // line segment 2
+      [ p2x, p2y ]
+    , [ p3x, p3y ]
+  ]
+  etc...
+]
+*/
+
+// flat or bumpy surface
 var surface = d3.range(n).map(rand.bind(null, m))
-  .map(function(d, i){ return [i * w / 2 / n + w / 4, d + h / 2] })
+  .map(function(d, i){ return [i * w / (n - 1), d + h * 0.5] })
+  .map(function(p, i, surface){ 
+    if( i === surface.length - 1) return null
+    return [ p , surface[i + 1] ]
+  }).filter(function(d){ return d })
 
-surface = d3.range(n).map(function(d){
-  var s = 100, x = w * 0.4, y = h * 0.5
-  var spray = 1 * pi, rot = pi * -0.8
-  return [ cos(d / (n - 1) * spray + rot) * s + x, sin(-d / (n - 1) * spray - rot) * s + y]
-})
+// flat or bumpy surface
+var surface2 = d3.range(n).map(rand.bind(null, m))
+  .map(function(d, i){ return [i * w / (n - 1), d + h * 0.55] })
+  .map(function(p, i, surface){ 
+    if( i === surface.length - 1) return null
+    return [ p , surface[i + 1] ]
+  }).filter(function(d){ return d })
 
-svg.append('path').datum(surface).attr({d: line, class: 'surface' })
-
-var source_pos = [ w / 8, h * 0.05 ]
+surface = surface.concat(surface2)
 
 
-var rays = d3.range(num_rays).map(function(d){
-  var spray = pi / 6, theta_offset = - pi / 4.5
-  var theta
-  if(num_rays > 1) theta = spray * d / (num_rays - 1) - spray / 2 - theta_offset
-  else theta = - theta_offset
-  var x = source_pos[0] + cos(theta) * ray_len
-  var y = source_pos[1] + sin(theta) * ray_len
-  return [ source_pos, [x, y] ]
-})
+// surface = d3.range(n).map(function(d){
+//   var s = 200, x = w * 0.45, y = h * 0.5
+//   var spray = 2 * pi, rot = pi * -0.8
+//   return [ 
+//     cos(d / (n - 1) * spray + rot) * s + x
+//     , sin(-d / (n - 1) * spray - rot) * s + y
+//   ]
+// }).map(function(p, i, surface){ 
+//   if( i === surface.length - 1) return null
+//   return [ p , surface[i + 1] ]
+// }).filter(function(d){ return d })
 
-var source = svg.append('circle').attr({ r: 10, cx: source_pos[0]
-  , cy: source_pos[1] })
+var mouse = [160, 324]
+d3.select('body').on('mousemove', function(){ mouse = d3.mouse(this) })
 
-// some common vector functions
-function cross(a, b){ return  a[0] * b[1] - a[1] * b[0] }
-function add  (a, b){ return [ a[0] + b[0], a[1] + b[1] ] }
-function minus(a, b){ return [ a[0] - b[0], a[1] - b[1] ] }
-function scale(a, s){ return [ a[0] * s, a[1] * s ] }
-function len(a){ return Math.sqrt(a[0]*a[0] + a[1]*a[1]) }
-function dot  (a, b){ return a[0] * b[0] + a[1] * b[1] }
-function unit(a){ var l = len(a); return [ a[0] / l, a[1] / l ] }
-function projection(a, b){ return dot(a, unit(b))}
-function intersection(q1, q2, p1, p2){
-  var q = q1, s = minus(q2, q1), p = p1, r = minus(p2, p1)
-  var r_cross_x = cross(r, s)
-  if(!r_cross_x) return null // if 0, lines are parallel
-  var q_minus_p = minus(q, p)
-  var q_minus_p_cross_r = cross(q_minus_p, r)
-  if(!q_minus_p_cross_r) return null // points are on the same line
-  var t = cross(q_minus_p, s) / r_cross_x
-  var u = q_minus_p_cross_r / r_cross_x
-  if( t < 0 || t > 1 || u < 0 || u > 1 ) return null
-  return add(q, scale(s, u))
-  // return add(q, scale(s,t))
-}
-function normals(p1, p2){
-  var dx = p2[0] - p1[0]
-  var dy = p2[1] - p1[1]
-  var n1 = [-dy, dx], n2 = [dy, -dx]
-  return [n1, n2]
-}
-function reflection(q1, p1, p2){
-  var line = minus(p2, p1)
-  var p = minus(q1, p1)
-  var proj = projection(p, line)
-  return add(minus(scale(unit(line), 2 * proj), p), p1)
-}
-function mirror(q, p1, p2, sect){
-  var n = normals(p1, p2)
-  var ac = minus(q, p1)
-  var ab = minus(p2, p1)
-  var ad = minus(p1, add(p1, n[0]))
-  var ac_cross_ab = cross(ac, ab)
-  var ad_cross_ab = cross(ad, ab)
-  ac_cross_ab = ac_cross_ab / Math.abs(ac_cross_ab)
-  ad_cross_ab = ad_cross_ab / Math.abs(ad_cross_ab)
-  if(ac_cross_ab === ad_cross_ab) n = n[0]; else n = n[1]
-  return reflection(q, sect, add(sect, n))
-}
+// draw the surface
 
-function findIntersection(surface, ray){
-  var intersections = surface.map(function(p, i){
-    if(i + 1 === surface.length) return
-    var intersect = intersection(ray[0], ray[1], p, surface[i + 1])
-    if(intersect) return { 
-      intersect: intersect
-      , surface: { p1: p, p2: surface[i + 1] }
-      , ray: ray
-      , t: len(minus(ray[1], intersect)) 
+d3.timer(function(){
+  
+  svg.selectAll('*').remove()
+
+  svg.append('g').selectAll('line').data(surface).enter()
+    .append('line').attr({ 
+      'class': 'surface'
+      , x1: function(d){ return d[0][0] }
+      , y1: function(d){ return d[0][1] }
+      , x2: function(d){ return d[1][0] }
+      , y2: function(d){ return d[1][1] }
+    })
+
+  var source_pos =  mouse.slice(0)
+
+  var source_rays = d3.range(num_rays).map(function(d){
+    var spray = 2 * pi, rot = - pi * 0.4
+    var theta
+    theta = spray * (d + 1) / num_rays - spray / 2 - rot
+    return [ source_pos, [ cos(theta), sin(theta) ] ]
+  })
+
+  var ray = source_rays[0]
+  var ray_path = []
+
+
+  var ray_trails = source_rays.map(function(ray){
+    var rays = [ray[0]]
+    var max = 200, count = 0
+    while(count++ < max){
+      var next = nextRay(surface, ray)
+      if(!next) break
+      rays.push(next[0])
+      ray = next
     }
-    else return null
-  }).filter(function(p){ return p })
-  return intersections.sort(function(a, b){ return b.t - a.t })[0]
-}
+    if(!next) rays.push(add(ray[0], scale(ray[1], ray_len)))
+    return rays
+  })
 
+  svg.append('g').selectAll('path').data(ray_trails)
+    .enter().append('path').attr({d: line, 'class': 'ray'})
 
-var intersections = rays.map(findIntersection.bind(null, surface))
-  .filter(function(p){ return p })
-
-
-intersections.forEach(function(intersection, i){
-  if(!intersection) return
-  var m = mirror(intersection.ray[0], intersection.surface.p1, intersection.surface.p2, intersection.intersect)
-  intersection.ray[1] = intersection.intersect
-  // svg.append('path').datum([ intersection.intersect, m]).attr({d: line, 'class': 'ray'})
-  //   .style('stroke-dashoffset', function(d){ return Math.random()  * 10 })
-  // svg.append('circle').datum(intersection.intersect)
-  //   .attr({ cx: function(d){ return d[0] }, 
-  //     cy: function(d){ return d[1] }, r: 3 })
+  var source = svg.append('circle').attr({ 
+    r: 10, cx: source_pos[0], cy: source_pos[1] })
 })
 
-// draw the rays
-svg.append('g').selectAll('path').data(rays).enter().append('path')
-  .attr({class: 'ray', d: line})
-  .style('stroke-dashoffset', function(d){ return Math.random()  * 10 })
+// svg.append('g').selectAll('path')
+//   .data(newRays.map(ray_to_segment.bind(null, ray_len)))
+//   .enter().append('path').attr({ 'class': 'ray', d: line })
 
     </script>
   </body>

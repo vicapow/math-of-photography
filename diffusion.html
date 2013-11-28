@@ -24,15 +24,7 @@
 
   </style>
   <body>
-    <svg>
-      <g class="eye">
-        <line x1="-126" y1="-48" x2="0" y2="0"/>
-        <line x1="0" y1="0" x2="-126" y2="48"/>
-        <path d="M-111.001-41.998c-23.195,0-41.998,18.803-41.998,41.998
-          s18.803,41.998,41.998,41.998"/>
-        <path d="M-150.999,14c4.05,0,5.333-6.268,5.333-14s-1.283-14-5.333-14"/>
-      </g>
-    </svg>
+    <svg></svg>
     <script src="d3.js"></script>
     <script src="vec.js"></script> <!-- small library of vector functions -->
     <script>
@@ -83,17 +75,17 @@ var surface2 = d3.range(n).map(rand.bind(null, m))
 surface = surface.concat(surface2)
 
 
-// surface = d3.range(n).map(function(d){
-//   var s = 200, x = w * 0.45, y = h * 0.5
-//   var spray = 2 * pi, rot = pi * -0.8
-//   return [ 
-//     cos(d / (n - 1) * spray + rot) * s + x
-//     , sin(-d / (n - 1) * spray - rot) * s + y
-//   ]
-// }).map(function(p, i, surface){ 
-//   if( i === surface.length - 1) return null
-//   return [ p , surface[i + 1] ]
-// }).filter(function(d){ return d })
+surface = surface.concat(d3.range(n).map(function(d){
+  var s = 200, x = w * 0.45, y = h * 0.5
+  var spray = 2 * pi, rot = pi * -0.8
+  return [ 
+    cos(d / (n - 1) * spray + rot) * s + x
+    , sin(-d / (n - 1) * spray - rot) * s + y
+  ]
+}).map(function(p, i, surface){ 
+  if( i === surface.length - 1) return null
+  return [ p , surface[i + 1] ]
+}).filter(function(d){ return d }))
 
 var mouse = [160, 324]
 d3.select('body').on('mousemove', function(){ mouse = d3.mouse(this) })
@@ -117,38 +109,18 @@ d3.timer(function(){
 
   var source_rays = d3.range(num_rays).map(function(d){
     var spray = 2 * pi, rot = - pi * 0.4
-    var theta
-    theta = spray * (d + 1) / num_rays - spray / 2 - rot
+      , theta = spray * (d + 1) / num_rays - spray / 2 - rot
     return [ source_pos, [ cos(theta), sin(theta) ] ]
   })
 
-  var ray = source_rays[0]
-  var ray_path = []
+  var ray_paths = source_rays.map(ray_trace.bind(null, surface))
 
-
-  var ray_trails = source_rays.map(function(ray){
-    var rays = [ray[0]]
-    var max = 200, count = 0
-    while(count++ < max){
-      var next = nextRay(surface, ray)
-      if(!next) break
-      rays.push(next[0])
-      ray = next
-    }
-    if(!next) rays.push(add(ray[0], scale(ray[1], ray_len)))
-    return rays
-  })
-
-  svg.append('g').selectAll('path').data(ray_trails)
+  svg.append('g').selectAll('path').data(ray_paths)
     .enter().append('path').attr({d: line, 'class': 'ray'})
 
-  var source = svg.append('circle').attr({ 
+  var source = svg.append('circle').attr({
     r: 10, cx: source_pos[0], cy: source_pos[1] })
 })
-
-// svg.append('g').selectAll('path')
-//   .data(newRays.map(ray_to_segment.bind(null, ray_len)))
-//   .enter().append('path').attr({ 'class': 'ray', d: line })
 
     </script>
   </body>

@@ -35,7 +35,7 @@ var w = window.innerWidth, h = window.innerHeight
   , rand = function(n){ return Math.random() * n }
   , translate = function(x,y){ return 'translate(' + x + ',' + y + ')' }
   , line = d3.svg.line()
-  , n = 10, m = 10
+  , n = 1000, m = 0.0
 
 
 var surface = d3.range(n).map(rand.bind(null, m))
@@ -45,7 +45,7 @@ svg.append('path').datum(surface).attr('d', line)
 
 var source_pos = [ w / 8, h * 0.05 ]
 
-var num_rays = 50, ray_len = 1000
+var num_rays = 500, ray_len = 1000
 var rays = d3.range(num_rays).map(function(d){
   var spray = pi / 6, theta_offset = - pi / 4.5
   var theta
@@ -58,6 +58,7 @@ var rays = d3.range(num_rays).map(function(d){
 
 svg.selectAll('path.ray').data(rays).enter().append('path')
   .attr({class: 'ray', d: line})
+  .style('stroke-dashoffset', function(d){ return Math.random()  * 10 })
 
 var source = svg.append('circle').attr({ r: 10, cx: source_pos[0]
   , cy: source_pos[1] })
@@ -121,33 +122,18 @@ function findIntersections(ray, surface){
   return intersections
 }
 
-// var sect = intersection(rays[0][0], rays[0][1], surface[0], surface[1] )
-// if(sect){
-//   var m = mirror(rays[0][0], surface[0], surface[1], sect )
-//   svg.append('circle').attr({ cx: m[0], cy: m[1], r: 10})
-//   svg.append('circle').attr({ cx: sect[0], cy: sect[1], r: 10})
-
-//   svg.append('path').datum([ sect, m ]).attr('d', line).attr("class", 'ray')
-// }
 
 var intersections = rays.map(function(ray){ 
   return findIntersections(ray, surface)
 })
 
-// intersections.forEach(function(intersections){
-//   svg.append('g').selectAll('circle').data(intersections).enter()
-//     .append('circle').attr({ 
-//       'class': 'intersect'
-//       , cx: function(d){ return d.intersect[0] }
-//       , cy: function(d){ return d.intersect[1] }
-//       , r: 3
-//     })
-// })
+
 intersections.forEach(function(intersects, i){
   if(!intersects.length) return
   var obj = intersects[0]
   var m = mirror(rays[i][0], obj.surface.p1, obj.surface.p2, obj.intersect)
-  svg.append('path').datum([ obj.intersect, m]).attr('d', line).attr('class', 'ray')
+  svg.append('path').datum([ obj.intersect, m]).attr({d: line, 'class': 'ray'})
+    .style('stroke-dashoffset', function(d){ return Math.random()  * 10 })
 })
 
     </script>

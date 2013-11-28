@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<!-- eventually: http://bl.ocks.org/mbostock/5649592 -->
+<meta charset="utf-8">
+<html>
+  <style>
+    body, html{ margin: 0;}
+    path{ stroke: black; stroke-width: 4; fill: none;}
+    .eye line, .eye path{
+      stroke: black;
+      stroke-width: 6;
+      fill: none;
+    }
+    path.ray{
+      stroke-dasharray: 5, 4;
+      stroke-width: 1;
+    }
+  </style>
+  <body>
+    <svg>
+      <g class="eye">
+        <line x1="-126" y1="-48" x2="0" y2="0"/>
+        <line x1="0" y1="0" x2="-126" y2="48"/>
+        <path d="M-111.001-41.998c-23.195,0-41.998,18.803-41.998,41.998
+          s18.803,41.998,41.998,41.998"/>
+        <path d="M-150.999,14c4.05,0,5.333-6.268,5.333-14s-1.283-14-5.333-14"/>
+      </g>
+    </svg>
+    <script src="d3.js"></script>
+    <script>
+var w = window.innerWidth, h = window.innerHeight
+  , max = Math.max(w, h), min = Math.min(w, h)
+  , svg = d3.select('svg').attr({width: w, height: h})
+  , pi = Math.PI, cos = Math.cos, sin = Math.sin
+  , translate = function(x,y){ return 'translate(' + x + ',' + y + ')' }
+  , line = d3.svg.line()
+  , prop = function(prop){ return function(d){ return d[prop] } }
+  , ray = d3.svg.line().x(prop('cx')).y(prop('cy'))
+  , color = d3.scale.category10()
+  , attr = function(attributes){ 
+      var obj = {}; attributes.forEach(function(attribute){ 
+        obj[attribute] = prop(attribute)
+      }); return obj
+    }
+  , eye = svg.select('.eye')
+    .attr('transform', translate(w * 0.5, h * 0.2) + 'scale(-0.5) rotate(45)')
+  , box = svg.append('g').attr('transform', translate(w * 0.75, h * 0.5))
+      .call(function(w, h, g){
+        g.append('path').datum([
+            [ -w / 2, -h / 2 ]
+          , [  w / 2, -h / 2 ]
+          , [  w / 2,  h / 2 ]
+          , [ -w / 2,  h / 2 ]
+        ]).attr('d', line)
+      }.bind(null, 10, h / 2))
+  , lights_span = h / 2, lights_r = 10
+  , lights_data = d3.range(3).map(function(d, i, data){
+    return {
+      fill: color(i)
+      ,  cx: w * 0.2
+      ,  cy: i / (data.length - 1) * lights_span - lights_span / 2 + h * 0.5
+      ,   r: lights_r
+      , 'class': 'light'
+    }
+  })
+  , light = svg.selectAll('circle.light').data(lights_data)
+      .enter().append('circle').attr(attr(['r', 'cx','cy','fill','class']))
+  , wall_span = lights_span
+  , wall_points = d3.range(10).map(function(d, i, data){ return { 
+         cx: w * 0.75 + 5
+      ,  cy: i / (data.length - 1) * wall_span - wall_span / 2 + h * 0.5
+    }})
+
+
+svg.selectAll('path.ray').data(wall_points.map(function(p){
+  return [lights_data[0], p]
+})).enter().append('path').attr({'class': 'ray ray1', d: ray })
+
+var offwall_lines = d3.merge(wall_points.map(function(p){
+    return d3.range(20).map(function(d, i, data){
+      var a = pi * 0.8
+      var th = pi - a / 2  + d / ( data.length - 1) * a , s = 200
+      return [ p , { cx: p.cx + cos(th) * s, cy: p.cy + sin(th) *s } ]
+    })
+  }))
+
+svg.selectAll('path.ray.ray2').data(offwall_lines).enter().append('path')
+  .attr({'class': 'ray ray2', d: ray })
+
+//svg.('path').datum([lights_data[0], wall_points[3]]).attr('d', ray)
+
+    </script>
+  </body>
+</html>

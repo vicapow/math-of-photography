@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<!-- eventually: http://bl.ocks.org/mbostock/5649592 -->
+<meta charset="utf-8">
+<html>
+  <style>
+    body, html{ margin: 0;}
+    circle{ fill: blue; }
+    path{ stroke: black; stroke-width: 1; fill: none;}
+    .eye line, .eye path{
+      stroke: black;
+      stroke-width: 6;
+      fill: none;
+    }
+    path.ray{
+      stroke-dasharray: 5, 4;
+      stroke-width: 1;
+    }
+  </style>
+  <body>
+    <svg>
+      <g class="eye">
+        <line x1="-126" y1="-48" x2="0" y2="0"/>
+        <line x1="0" y1="0" x2="-126" y2="48"/>
+        <path d="M-111.001-41.998c-23.195,0-41.998,18.803-41.998,41.998
+          s18.803,41.998,41.998,41.998"/>
+        <path d="M-150.999,14c4.05,0,5.333-6.268,5.333-14s-1.283-14-5.333-14"/>
+      </g>
+    </svg>
+    <script src="d3.js"></script>
+    <script>
+var w = window.innerWidth, h = window.innerHeight
+  , max = Math.max(w, h), min = Math.min(w, h), pi = Math.PI, abs = Math.abs
+  , cos = Math.cos, sin = Math.sin
+  , svg = d3.select('svg').attr({width: w, height: h})
+  , rand = function(n){ return Math.random() * n }
+  , translate = function(x,y){ return 'translate(' + x + ',' + y + ')' }
+  , line = d3.svg.line()
+  , n = 10, m = 10
+
+
+var surface = d3.range(n).map(rand.bind(null, m))
+  .map(function(d, i){ return [i * w / 2 / n + w / 4, d + h / 2] })
+
+svg.append('path').datum(surface).attr('d', line)
+
+var source_pos = [ w / 8, h * 0.05 ]
+
+var num_rays = 50, ray_len = 1000
+var rays = d3.range(num_rays).map(function(d){
+  var spray = pi / 6, theta_offset = - pi / 4.5
+  var theta
+  if(num_rays > 1) theta = spray * d / (num_rays - 1) - spray / 2 - theta_offset
+  else theta = - theta_offset
+  var x = source_pos[0] + cos(theta) * ray_len
+  var y = source_pos[1] + sin(theta) * ray_len
+  return [ source_pos, [x, y] ]
+})
+
+svg.selectAll('path.ray').data(rays).enter().append('path')
+  .attr({class: 'ray', d: line})
+
+var source = svg.append('circle').attr({ r: 10, cx: source_pos[0]
+  , cy: source_pos[1] })
+
+function cross(a, b){ return a[0] * b[1] - a[1] * b[0] }
+function add(a, b){ return [ a[0] + b[0], a[1] + b[1] ] }
+function minus(a, b){ return [ a[0] - b[0], a[1] - b[1] ] }
+function scale(a, s){ return [a[0] * s, a[1] * s] }
+function dot(a, b){ return a[0] * b[0] + a[1] * b[1]}
+function unit(a){ 
+  var l = Math.sqrt(a[0]*a[0] + a[1]*a[1])
+  return [ a[0] / l, a[1] / l ]
+}
+function projection(a, b){ return dot(a, unit(b))}
+function intersection(q1, q2, p1, p2){
+  var q = q1, s = minus(q2, q1), p = p1, r = minus(p2, p1)
+  var r_cross_x = cross(r, s)
+  if(!r_cross_x) return null // if 0, lines are parallel
+  var q_minus_p = minus(q, p)
+  var q_minus_p_cross_r = cross(q_minus_p, r)
+  if(!q_minus_p_cross_r) return null // points are on the same line
+  var t = cross(q_minus_p, s) / r_cross_x
+  var u = q_minus_p_cross_r / r_cross_x
+  if( t < 0 || t > 1 || u < 0 || u > 1 ) return null
+  return add(q, scale(s, u))
+  // return add(q, scale(s,t))
+}
+function normals(p1, p2){
+  var dx = p2[0] - p1[0]
+  var dy = p2[1] - p1[1]
+  var n1 = [-dy, dx], n2 = [dy, -dx]
+  return [n1, n2]
+}
+function reflection(q1, p1, p2){
+  var line = minus(p2, p1)
+  var p = minus(q1, p1)
+  var proj = projection(p, line)
+  return add(minus(scale(unit(line), 2 * proj), p), p1)
+}
+function mirror(q, p1, p2, sect){
+  var n = normals(p1, p2)
+  var ac = minus(q, p1)
+  var ab = minus(p2, p1)
+  var ad = minus(p1, add(p1, n[0]))
+  var ac_cross_ab = cross(ac, ab)
+  var ad_cross_ab = cross(ad, ab)
+  ac_cross_ab = ac_cross_ab / Math.abs(ac_cross_ab)
+  ad_cross_ab = ad_cross_ab / Math.abs(ad_cross_ab)
+  if(ac_cross_ab === ad_cross_ab) n = n[0]; else n = [1]
+  return reflection(q, sect, add(sect, n))
+}
+
+function findIntersections(ray, surface){
+  var intersections = surface.map(function(p, i){
+    if(i + 1 === surface.length) return
+    var intersect = intersection(ray[0], ray[1], p, surface[i + 1])
+    if(intersect) return { intersect: intersect
+      , surface: { p1: p, p2: surface[i + 1]}}
+    else return null
+  }).filter(function(p){ return p })
+  return intersections
+}
+
+// var sect = intersection(rays[0][0], rays[0][1], surface[0], surface[1] )
+// if(sect){
+//   var m = mirror(rays[0][0], surface[0], surface[1], sect )
+//   svg.append('circle').attr({ cx: m[0], cy: m[1], r: 10})
+//   svg.append('circle').attr({ cx: sect[0], cy: sect[1], r: 10})
+
+//   svg.append('path').datum([ sect, m ]).attr('d', line).attr("class", 'ray')
+// }
+
+var intersections = rays.map(function(ray){ 
+  return findIntersections(ray, surface)
+})
+
+// intersections.forEach(function(intersections){
+//   svg.append('g').selectAll('circle').data(intersections).enter()
+//     .append('circle').attr({ 
+//       'class': 'intersect'
+//       , cx: function(d){ return d.intersect[0] }
+//       , cy: function(d){ return d.intersect[1] }
+//       , r: 3
+//     })
+// })
+intersections.forEach(function(intersects, i){
+  if(!intersects.length) return
+  var obj = intersects[0]
+  var m = mirror(rays[i][0], obj.surface.p1, obj.surface.p2, obj.intersect)
+  svg.append('path').datum([ obj.intersect, m]).attr('d', line).attr('class', 'ray')
+})
+
+    </script>
+  </body>
+</html>

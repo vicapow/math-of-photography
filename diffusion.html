@@ -26,7 +26,8 @@
   <body>
     <svg></svg>
     <script src="d3.js"></script>
-    <script src="vec.js"></script> <!-- small library of vector functions -->
+    <script src="vec.js"></script>
+    <script src="geo.js"></script>
     <script>
 var w = window.innerWidth, h = window.innerHeight
   , max = Math.max(w, h), min = Math.min(w, h), pi = Math.PI, abs = Math.abs
@@ -35,7 +36,7 @@ var w = window.innerWidth, h = window.innerHeight
   , rand = function(n){ return Math.random() * n }
   , translate = function(x,y){ return 'translate(' + x + ',' + y + ')' }
   , line = d3.svg.line()
-  , n = 100, m = 0, num_rays = 1, ray_len = 10000
+  , n = 100, m = 0, num_rays = 10, ray_len = 10000
 
 
 
@@ -56,26 +57,8 @@ var surface = [
 ]
 */
 
-// flat or bumpy surface
-var surface = d3.range(n).map(rand.bind(null, m))
-  .map(function(d, i){ return [i * w / (n - 1), d + h * 0.5] })
-  .map(function(p, i, surface){ 
-    if( i === surface.length - 1) return null
-    return [ p , surface[i + 1] ]
-  }).filter(function(d){ return d })
-
-// flat or bumpy surface
-var surface2 = d3.range(n).map(rand.bind(null, m))
-  .map(function(d, i){ return [i * w / (n - 1), d + h * 0.55] })
-  .map(function(p, i, surface){ 
-    if( i === surface.length - 1) return null
-    return [ p , surface[i + 1] ]
-  }).filter(function(d){ return d })
-
-surface = surface.concat(surface2)
-
-
-surface = surface.concat(d3.range(n).map(function(d){
+// // add a sphere
+var surface = d3.range(n).map(function(d){
   var s = 200, x = w * 0.45, y = h * 0.5
   var spray = 2 * pi, rot = pi * -0.8
   return [ 
@@ -85,12 +68,41 @@ surface = surface.concat(d3.range(n).map(function(d){
 }).map(function(p, i, surface){ 
   if( i === surface.length - 1) return null
   return [ p , surface[i + 1] ]
-}).filter(function(d){ return d }))
+}).filter(function(d){ return d })
 
-var mouse = [160, 324]
+// add a box
+
+// random lines all over the place!
+// surface = d3.range(10).map(function(d){
+//   return [ [rand(w), rand(h)], [rand(w), rand(h)] ]
+// })
+
+// box surrounding window
+// surface = surface.concat(surface_box([0,0],[w, h]))
+
+var mouse = [w/2, h/2]
 d3.select('body').on('mousemove', function(){ mouse = d3.mouse(this) })
 
-// draw the surface
+
+// create the source rays given the source light positions
+function source_rays(source_pos, rot, spray){
+  return d3.range(num_rays).map(function(d){
+    var theta = spray * (d + 1) / num_rays - spray / 2 - rot
+    return [ source_pos, [ cos(theta), sin(theta) ] ]
+  })
+}
+
+function points_circle(pos, r, n){
+  return d3.range(n).map(function(d){
+    var theta = (d + 1) / n * 2 * pi
+    return [ pos[0] + cos(theta) * r, pos[1] + sin(theta) * r ]
+  })
+}
+
+// draw loop
+
+var num_sources = 1 // num_rays
+var rand_rots = d3.range(num_sources).map(function(d){ return rand(pi) })
 
 d3.timer(function(){
   
@@ -105,21 +117,18 @@ d3.timer(function(){
       , y2: function(d){ return d[1][1] }
     })
 
-  var source_pos =  mouse.slice(0)
+  // light sources
+  var sources;
+  if(num_sources > 1) sources = points_circle(mouse, 40, num_sources)
+  else sources = [mouse.slice(0)]
 
-  var source_rays = d3.range(num_rays).map(function(d){
-    var spray = 2 * pi, rot = - pi * 0.4
-      , theta = spray * (d + 1) / num_rays - spray / 2 - rot
-    return [ source_pos, [ cos(theta), sin(theta) ] ]
-  })
+  var rays = d3.merge(sources.map(function(source, i){
+    return source_rays(source, rand_rots[i], 2 * pi).map(ray_trace.bind(null, surface, 10))
+  }))
 
-  var ray_paths = source_rays.map(ray_trace.bind(null, surface))
-
-  svg.append('g').selectAll('path').data(ray_paths)
+  svg.append('g').selectAll('path').data(rays)
     .enter().append('path').attr({d: line, 'class': 'ray'})
 
-  var source = svg.append('circle').attr({
-    r: 10, cx: source_pos[0], cy: source_pos[1] })
 })
 
     </script>

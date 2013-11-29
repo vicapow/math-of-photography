@@ -59,9 +59,9 @@ function nextRay(surface, ray){
 function ray_to_segment(len, ray){
   return [ray[0], add(ray[0], scale(ray[1], len))]
 }
-function ray_trace(surface, ray){
-  var rays = [ray[0]]
-  var max = 200, count = 0
+function ray_trace(surface, max, ray){
+  var rays = [ray[0]], count = 0
+  max = max || 200
   while(count++ < max){
     var next = nextRay(surface, ray)
     if(!next) break

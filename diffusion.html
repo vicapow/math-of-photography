@@ -63,21 +63,21 @@ surfaces.push({
 })
 
 // add the pin hole
-surfaces.push({
-  geometry: surface_pinhole([w * 0.5, h * 0.1], [w * 0.5, h * 0.9], 10)
-  , material: { diffusion: 0, reflection: 0 }
-})
+// surfaces.push({
+//   geometry: surface_pinhole([w * 0.5, h * 0.1], [w * 0.5, h * 0.9], 10)
+//   , material: { diffusion: 1, reflection: 0 }
+// })
 
 // add a box
 // box surrounding window
 
 
 
-var sources = d3.range(5).map(function(d){
+var sources = d3.range(1).map(function(d){
   return { 
-    rays: 100 // number of rays the ligh source will emit
+    rays: 50 // number of rays the ligh source will emit
     , rotation: pi * 0.0
-    , spray: pi * 0.5
+    , spray: pi * 2
     , position: mouse
     , color: color(d)
   }

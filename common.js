@@ -69,7 +69,7 @@ function next_rays(surfaces, ray){
 
   // the rays we'll be returning. perfect reflection ray should come first
   var rays = [surface_reflection(intersect)]
-  rays = rays.concat(surface_diffusion(intersect, 2))
+  rays = rays.concat(surface_diffusion(intersect, 10))
   return rays
 }
 
@@ -89,7 +89,7 @@ function surface_diffusion(intersect, max){
   if(!diffusion) return []
   var count = 0, rays = [], angle
   while(count++ < max){
-    angle = rot(intersect.normal, pi * diffusion / 2 - rand(pi * diffusion))
+    angle = rot(intersect.normal, pi * 0.5 - pi * 1 * count / max )
     rays.push([intersect.position, angle])
   }
   return rays

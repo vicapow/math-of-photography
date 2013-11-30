@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+<body>
+  <style>
+    body, html{ margin: 0;}
+    circle{ fill: blue; }
+    path{ stroke: black; stroke-width: 1; fill: none;}
+    .eye line, .eye path{
+      stroke: black;
+      stroke-width: 6;
+      fill: none;
+    }
+    path.ray{
+      /*stroke-dasharray: 5, 4;*/
+      stroke-width: 1;
+      stroke-linejoin: bevel;
+      opacity: 1;
+      stroke: blue;
+    }
+    .surface{
+      stroke-width: 2;
+      stroke: black;
+    }
+
+  </style>
+<script src="d3.js"></script>
+<script>
+var w = window.innerWidth, h = window.innerHeight
+  , max = Math.max(w, h), min = Math.min(w, h), pi = Math.PI, abs = Math.abs
+  , cos = Math.cos, sin = Math.sin
+  , svg = d3.select('body').append('svg').attr({width: w, height: h})
+  , rand = function(n){ return Math.random() * n }
+  , translate = function(x,y){ return 'translate(' + x + ',' + y + ')' }
+  , line = d3.svg.line()
+  , n = 100, m = 0, num_rays = 50, ray_len = 10000
+
+
+
+// surface is an array of line segments of the form: [p1, p2]
+// so surface looks like: [ [p1, p2], [p2, p3], ... ]
+// where each `p*` is a ponit, described as a 2 element array. ie., [343, 253]
+/*
+var surface = [
+  [ // line segment 1
+      [ p1x, p2y ]
+    , [ p2x, p2y ]
+  ]
+  , [ // line segment 2
+      [ p2x, p2y ]
+    , [ p3x, p3y ]
+  ]
+  etc...
+]
+*/
+
+// // add a sphere
+var surface = d3.range(100).map(function(d){
+  var s = 200, x = w * 0.45, y = h * 0.5
+  var spray = 2 * pi, rot = pi * -0.8
+  return [ 
+    cos(d / (n - 1) * spray + rot) * s + x
+    , sin(-d / (n - 1) * spray - rot) * s + y
+  ]
+}).map(function(p, i, surface){ 
+  if( i === surface.length - 1) return null
+  return [ p , surface[i + 1] ]
+}).filter(function(d){ return d })
+
+
+var mouse = [w/2, h/2]
+d3.select('body').on('mousemove', function(){ mouse = d3.mouse(this) })
+
+
+// create the source rays given the source light positions
+function source_rays(source_pos, rot, spray){
+  return d3.range(num_rays).map(function(d){
+    var theta = spray * (d + 1) / num_rays - spray / 2 - rot
+    return [ source_pos, [ cos(theta), sin(theta) ] ]
+  })
+}
+
+// draw loop
+
+var sources_num = 1 // num_rays
+var sources_rots = d3.range(sources_num).map(function(d){ return 0 })
+var sources_spray = d3.range(sources_num).map(function(d){ return pi * 0.3 })
+
+
+d3.timer(function(){
+
+  svg.selectAll('*').remove()
+
+  svg.append('g').selectAll('line').data(surface).enter()
+    .append('line').attr({ 
+      'class': 'surface'
+      , x1: function(d){ return d[0][0] }
+      , y1: function(d){ return d[0][1] }
+      , x2: function(d){ return d[1][0] }
+      , y2: function(d){ return d[1][1] }
+    })
+
+  // light sources
+  var sources;
+  if(sources_num > 1) sources = points_circle(mouse, 40, sources_num)
+  else sources = [mouse.slice(0)]
+
+  var rays = d3.merge(sources.map(function(source, i){
+    return source_rays(source, sources_rots[i], sources_spray[i])
+      .map(ray_trace.bind(null, surface, 10))
+  }))
+
+  svg.append('g').selectAll('path').data(rays)
+    .enter().append('path').attr({d: line, 'class': 'ray'})
+
+})
+
+
+// vector helpers
+
+// some common vector functions
+function cross(a, b){ return  a[0] * b[1] - a[1] * b[0] }
+function add  (a, b){ return [ a[0] + b[0], a[1] + b[1] ] }
+function minus(a, b){ return [ a[0] - b[0], a[1] - b[1] ] }
+function scale(a, s){ return [ a[0] * s, a[1] * s ] }
+function len(a){ return Math.sqrt(a[0]*a[0] + a[1]*a[1]) }
+function dot  (a, b){ return a[0] * b[0] + a[1] * b[1] }
+function unit(a){ var l = len(a); return [ a[0] / l, a[1] / l ] }
+function projection(a, b){ return dot(a, unit(b))}
+function intersection(q1, q2, p1, p2){
+  var q = q1, s = minus(q2, q1), p = p1, r = minus(p2, p1)
+  var r_cross_x = cross(r, s)
+  if(!r_cross_x) return null // if 0, lines are parallel
+  var q_minus_p = minus(q, p)
+  var q_minus_p_cross_r = cross(q_minus_p, r)
+  if(!q_minus_p_cross_r) return null // points are on the same line
+  var t = cross(q_minus_p, s) / r_cross_x
+  var u = q_minus_p_cross_r / r_cross_x
+  if( t < 0 || t > 1 || u < 0.000001 ) return null
+  return { p: add(q, scale(s, u)), u: u }
+}
+function normals(p1, p2){
+  var dx = p2[0] - p1[0]
+  var dy = p2[1] - p1[1]
+  var n1 = [-dy, dx], n2 = [dy, -dx]
+  return [n1, n2]
+}
+function reflection(q1, p1, p2){
+  var line = minus(p2, p1)
+  var p = minus(q1, p1)
+  var proj = projection(p, line)
+  return add(minus(scale(unit(line), 2 * proj), p), p1)
+}
+function mirror(q, p1, p2, sect){
+  var n = normals(p1, p2)
+  var ac = minus(q, p1)
+  var ab = minus(p2, p1)
+  var ad = minus(p1, add(p1, n[0]))
+  var ac_cross_ab = cross(ac, ab)
+  var ad_cross_ab = cross(ad, ab)
+  ac_cross_ab = ac_cross_ab / Math.abs(ac_cross_ab)
+  ad_cross_ab = ad_cross_ab / Math.abs(ad_cross_ab)
+  if(ac_cross_ab === ad_cross_ab) n = n[0]; else n = n[1]
+  return reflection(q, sect, add(sect, n))
+}
+function nextRay(surface, ray){
+  var r1 = ray[0], r2 = add(ray[0], ray[1])
+  var intersect = surface.map(function(segment){
+    var intersect = intersection(r1, r2, segment[0], segment[1])
+    if(!intersect) return null
+    intersect.surface = segment
+    return intersect
+  }).filter(function(d){ return d }).sort(function(a, b){ return a.u - b.u })[0]
+  if(!intersect) return null
+  var m = mirror(r1, intersect.surface[0], intersect.surface[1], intersect.p)
+  return [ intersect.p, unit(minus(m, intersect.p)) ]
+}
+function ray_to_segment(len, ray){
+  return [ray[0], add(ray[0], scale(ray[1], len))]
+}
+function ray_trace(surface, max, ray){
+  var rays = [ray[0]], count = 0
+  max = max || 200
+  while(count++ < max){
+    var next = nextRay(surface, ray)
+    if(!next) break
+    rays.push(next[0])
+    ray = next
+  }
+  if(!next) rays.push(add(ray[0], scale(ray[1], ray_len)))
+  return rays
+}
+
+// surface helpers
+
+function surface_box(pos, dim){
+  var x = pos[0], y = pos[1], w = dim[0], h = dim[1]
+  return [
+      [ [ x    , y     ], [ x + w, y     ] ]
+    , [ [ x + w, y     ], [ x + w, y + h ] ]
+    , [ [ x + w, y + h ], [ x    , y + h ] ]
+    , [ [ x    , y + h ], [ x    , y     ] ]
+  ]
+}
+function surface_open_box(pos, dim){
+  var surface = surface_box(pos, dim)
+  surface.splice(3, 1)
+  return surface
+}
+function surface_pinhole(p1, p2, w){
+  var r = minus(p2, p1), l = len(r), u = unit(r)
+    , q1 = add(p1, scale(u, l / 2 - w / 2))
+    , q2 = add(p1, scale(u, l / 2 + w / 2))
+  return [ [p1, q1], [q2, p2] ]
+}
+function points_circle(pos, r, n){
+  return d3.range(n).map(function(d){
+    var theta = (d + 1) / n * 2 * pi
+    return [ pos[0] + cos(theta) * r, pos[1] + sin(theta) * r ]
+  })
+}
+</script>
+</body>
+</html>

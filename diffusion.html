@@ -36,7 +36,7 @@ var w = window.innerWidth, h = window.innerHeight
   , rand = function(n){ return Math.random() * n }
   , translate = function(x,y){ return 'translate(' + x + ',' + y + ')' }
   , line = d3.svg.line()
-  , n = 100, m = 0, num_rays = 10, ray_len = 10000
+  , n = 100, m = 0, num_rays = 50, ray_len = 10000
 
 
 
@@ -57,28 +57,13 @@ var surface = [
 ]
 */
 
-// // add a sphere
-var surface = d3.range(n).map(function(d){
-  var s = 200, x = w * 0.45, y = h * 0.5
-  var spray = 2 * pi, rot = pi * -0.8
-  return [ 
-    cos(d / (n - 1) * spray + rot) * s + x
-    , sin(-d / (n - 1) * spray - rot) * s + y
-  ]
-}).map(function(p, i, surface){ 
-  if( i === surface.length - 1) return null
-  return [ p , surface[i + 1] ]
-}).filter(function(d){ return d })
+
+var surface = surface_open_box([w * 0.8, h * 0.25], [5, h / 2])
+
+// surface = surface.concat(surface_pinhole([w * 0.5, h * 0.25], [w * 0.5, h * 0.75], 10))
 
 // add a box
-
-// random lines all over the place!
-// surface = d3.range(10).map(function(d){
-//   return [ [rand(w), rand(h)], [rand(w), rand(h)] ]
-// })
-
 // box surrounding window
-// surface = surface.concat(surface_box([0,0],[w, h]))
 
 var mouse = [w/2, h/2]
 d3.select('body').on('mousemove', function(){ mouse = d3.mouse(this) })
@@ -92,17 +77,13 @@ function source_rays(source_pos, rot, spray){
   })
 }
 
-function points_circle(pos, r, n){
-  return d3.range(n).map(function(d){
-    var theta = (d + 1) / n * 2 * pi
-    return [ pos[0] + cos(theta) * r, pos[1] + sin(theta) * r ]
-  })
-}
-
 // draw loop
 
-var num_sources = 1 // num_rays
-var rand_rots = d3.range(num_sources).map(function(d){ return rand(pi) })
+var sources_num = 1 // num_rays
+var sources_rots = //d3.range(sources_num).map(function(d){ return rand(2 * pi) })
+  d3.range(sources_num).map(function(d){ return 0 })
+var sources_spray = 
+  d3.range(sources_num).map(function(d){ return pi * 0.3 })
 
 d3.timer(function(){
   
@@ -119,11 +100,12 @@ d3.timer(function(){
 
   // light sources
   var sources;
-  if(num_sources > 1) sources = points_circle(mouse, 40, num_sources)
+  if(sources_num > 1) sources = points_circle(mouse, 40, sources_num)
   else sources = [mouse.slice(0)]
 
   var rays = d3.merge(sources.map(function(source, i){
-    return source_rays(source, rand_rots[i], 2 * pi).map(ray_trace.bind(null, surface, 10))
+    return source_rays(source, sources_rots[i], sources_spray[i])
+      .map(ray_trace.bind(null, surface, 10))
   }))
 
   svg.append('g').selectAll('path').data(rays)

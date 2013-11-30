@@ -1,10 +1,14 @@
 // some common vector functions
+function rand(n){ return Math.random() * n}
+function rot(a, t){ 
+  return [ cos(t) * a[0] - sin(t) * a[1], sin(t) * a[1] + cos(t) * a[1] ] 
+}
 function cross(a, b){ return  a[0] * b[1] - a[1] * b[0] }
-function add  (a, b){ return [ a[0] + b[0], a[1] + b[1] ] }
+function add(a, b){ return [ a[0] + b[0], a[1] + b[1] ] }
 function minus(a, b){ return [ a[0] - b[0], a[1] - b[1] ] }
 function scale(a, s){ return [ a[0] * s, a[1] * s ] }
 function len(a){ return Math.sqrt(a[0]*a[0] + a[1]*a[1]) }
-function dot  (a, b){ return a[0] * b[0] + a[1] * b[1] }
+function dot(a, b){ return a[0] * b[0] + a[1] * b[1] }
 function unit(a){ var l = len(a); return [ a[0] / l, a[1] / l ] }
 function projection(a, b){ return dot(a, unit(b))}
 function intersection(q1, q2, p1, p2){
@@ -44,26 +48,34 @@ function mirror(q, p1, p2, sect){
   return reflection(q, sect, add(sect, n))
 }
 
-function nextRay(surface, ray){
+function nextRay(surfaces, ray){
   var r1 = ray[0], r2 = add(ray[0], ray[1])
-  var intersect = surface.map(function(segment){
-    var intersect = intersection(r1, r2, segment[0], segment[1])
-    if(!intersect) return null
-    intersect.surface = segment
-    return intersect
-  }).filter(function(d){ return d }).sort(function(a, b){ return a.u - b.u })[0]
+  var intersect = d3.merge(surfaces.map(function(surface){
+    return surface.geometry.map(function(segment){
+      var intersect = intersection(r1, r2, segment[0], segment[1])
+      if(!intersect) return null
+      intersect.surface = segment
+      intersect.material = surface.material
+      return intersect
+    })
+  })).filter(function(d){ return d }).sort(function(a, b){ return a.u - b.u })[0]
   if(!intersect) return null
   var m = mirror(r1, intersect.surface[0], intersect.surface[1], intersect.p)
-  return [ intersect.p, unit(minus(m, intersect.p)) ]
+  m = unit(minus(m, intersect.p))
+  var d = intersect.material && intersect.material.diffusion
+  if(d) m = rot(m, pi * d * 0.5 - rand(pi * d))
+  var r = intersect.material && intersect.material.reflection
+  if(rand(1) > r) return [intersect.p, [0, 0]]
+  return [intersect.p, m]
 }
 function ray_to_segment(len, ray){
   return [ray[0], add(ray[0], scale(ray[1], len))]
 }
-function ray_trace(surface, max, ray){
+function ray_trace(surfaces, max, ray){
   var rays = [ray[0]], count = 0
   max = max || 200
   while(count++ < max){
-    var next = nextRay(surface, ray)
+    var next = nextRay(surfaces, ray)
     if(!next) break
     rays.push(next[0])
     ray = next

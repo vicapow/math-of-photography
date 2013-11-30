@@ -2,7 +2,7 @@
 <meta charset="utf-8">
 <html>
   <style>
-    body, html{ margin: 0;}
+    body, html{ margin: 0; background-color: black;}
     circle{ fill: blue; }
     path{ stroke: black; stroke-width: 1; fill: none;}
     .eye line, .eye path{
@@ -12,14 +12,14 @@
     }
     path.ray{
       /*stroke-dasharray: 5, 4;*/
-      stroke-width: 1;
+      stroke-width: 2;
       stroke-linejoin: bevel;
       opacity: 1;
-      stroke: blue;
+      stroke: white;
     }
     .surface{
       stroke-width: 2;
-      stroke: black;
+      stroke: green;
     }
 
   </style>
@@ -33,7 +33,6 @@ var w = window.innerWidth, h = window.innerHeight
   , max = Math.max(w, h), min = Math.min(w, h), pi = Math.PI, abs = Math.abs
   , cos = Math.cos, sin = Math.sin
   , svg = d3.select('svg').attr({width: w, height: h})
-  , rand = function(n){ return Math.random() * n }
   , translate = function(x,y){ return 'translate(' + x + ',' + y + ')' }
   , line = d3.svg.line()
   , n = 100, m = 0, num_rays = 50, ray_len = 10000
@@ -57,10 +56,16 @@ var surface = [
 ]
 */
 
+var surfaces = []
+surfaces.push({
+  geometry: surface_open_box([w * 0.8, h * 0.25], [5, h / 2])
+  , material: { diffusion: 1 /* randomness */, reflection: 1 /* bounciness */ }
+})
 
-var surface = surface_open_box([w * 0.8, h * 0.25], [5, h / 2])
-
-// surface = surface.concat(surface_pinhole([w * 0.5, h * 0.25], [w * 0.5, h * 0.75], 10))
+surfaces.push({
+  geometry: surface_pinhole([w * 0.5, h * 0.25], [w * 0.5, h * 0.75], 10)
+  , material: { diffusion: 0, reflection: 0 }
+})
 
 // add a box
 // box surrounding window
@@ -89,14 +94,17 @@ d3.timer(function(){
   
   svg.selectAll('*').remove()
 
-  svg.append('g').selectAll('line').data(surface).enter()
-    .append('line').attr({ 
-      'class': 'surface'
-      , x1: function(d){ return d[0][0] }
-      , y1: function(d){ return d[0][1] }
-      , x2: function(d){ return d[1][0] }
-      , y2: function(d){ return d[1][1] }
-    })
+  svg.append('g').selectAll('g').data(surfaces).enter()
+    .append('g').selectAll('line')
+      .data(function(d){ return d.geometry })
+      .enter().append('line')
+      .attr({ 
+        'class': 'surface'
+        , x1: function(d){ return d[0][0] }
+        , y1: function(d){ return d[0][1] }
+        , x2: function(d){ return d[1][0] }
+        , y2: function(d){ return d[1][1] }
+      })
 
   // light sources
   var sources;
@@ -105,7 +113,7 @@ d3.timer(function(){
 
   var rays = d3.merge(sources.map(function(source, i){
     return source_rays(source, sources_rots[i], sources_spray[i])
-      .map(ray_trace.bind(null, surface, 10))
+      .map(ray_trace.bind(null, surfaces, 10))
   }))
 
   svg.append('g').selectAll('path').data(rays)

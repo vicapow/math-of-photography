@@ -32,8 +32,9 @@
 
 var svg = d3.select('svg').attr({width: w, height: h})
   , translate = function(x,y){ return 'translate(' + x + ',' + y + ')' }
-  , max_lives = 3
-
+  , ray_lives = 3
+  //, color = d3.scale.linear().domain(['#000000', '#ffffff']).range([0, 1])
+  , color = d3.scale.category10()
 
 
 // surface is an array of line segments of the form: [p1, p2]
@@ -57,14 +58,14 @@ var surfaces = []
 
 // add the back of the box
 surfaces.push({
-  geometry: surface_open_box([w * 0.8, h * 0.25], [5, h / 2])
+  geometry: surface_open_box([w * 0.8, h * 0.1], [5, h * 0.8])
   , material: { diffusion: 1 /* randomness */, reflection: 0 /* bounciness */ }
 })
 
 // add the pin hole
 surfaces.push({
-  geometry: surface_pinhole([w * 0.5, h * 0.25], [w * 0.5, h * 0.75], 10)
-  , material: { diffusion: 0, reflection: 1 }
+  geometry: surface_pinhole([w * 0.5, h * 0.1], [w * 0.5, h * 0.9], 10)
+  , material: { diffusion: 0, reflection: 0 }
 })
 
 // add a box
@@ -72,12 +73,13 @@ surfaces.push({
 
 
 
-var sources = d3.range(1).map(function(d){
+var sources = d3.range(5).map(function(d){
   return { 
     rays: 100 // number of rays the ligh source will emit
     , rotation: pi * 0.0
-    , spray: pi * 0.2
-    , position: mouse 
+    , spray: pi * 0.5
+    , position: mouse
+    , color: color(d)
   }
 })
 
@@ -100,23 +102,21 @@ d3.timer(function(){
       })
 
   // light sources
-  if(sources.length > 1) points_circle(mouse, 40, sources.length)
+  if(sources.length > 1) points_line(mouse, 300, sources.length)
     .forEach(function(position, i){ sources[i].position = position })
   else sources[0].position = mouse.slice(0)
 
   var rays = d3.merge(sources.map(function(source){
-    var pos = source.position, rot = source.rotation, spray = source.spray
-      , rays = source.rays
-    return source_rays(pos, rot, spray, rays)
+    return source_rays(source, ray_lives)
   }))
 
-  rays = ray_trace(surfaces, 20, 2000, rays, max_lives)
+  rays = ray_trace(surfaces, 20, 2000, rays)
 
   svg.append('g').selectAll('path').data(rays)
     .enter().append('path').attr({
       d: function(ray){ return line(ray.values) }
       , 'class': 'ray'
-    }).style('opacity', '0.3')
+    }).style({ opacity: 0.3, stroke: function(ray){ return ray.source.color } })
 }, 1000)
 
     </script>

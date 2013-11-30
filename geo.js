@@ -27,3 +27,11 @@ function points_circle(pos, r, n){
     return [ pos[0] + cos(theta) * r, pos[1] + sin(theta) * r ]
   })
 }
+
+function points_line(pos, h, n){
+  return d3.range(n).map(function(d){
+    var step
+    if(n > 1) step = d / (n - 1); else step = 0
+    return [ pos[0], pos[1] + step * h - h * 0.5 ]
+  })
+}

@@ -115,9 +115,8 @@ function ray_extend_angle(ray, len){
 // returns an array of the form [ ray1, ray2, ray4, ray5, etc... ] that specifies
 // the path of the ray, after reflecting, refracting or diffusing off of
 // the all `surfaces` depending on their material
-function ray_trace(surfaces, max, ray_len, rays, max_lives){
+function ray_trace(surfaces, max, ray_len, alive){
   var ray, dead = [], count, reflected_rays, angle
-    , alive = rays.map(function(ray){ return { values: ray, lives: max_lives } })
   while(alive.length){
     ray = alive.pop()
     while(ray.lives-- > 0){
@@ -138,7 +137,8 @@ function ray_trace(surfaces, max, ray_len, rays, max_lives){
       // add any other diffused rays to the `alive` set of rays
       reflected_rays.forEach(function(sub_ray, i){
         if(i === 0) return
-        alive.push({ values: sub_ray, lives: ray.lives })
+        alive.push({ values: sub_ray, lives: ray.lives, id: ray.id
+          , source: ray.source })
       })
       // the recent reflected array got absorbed by the material
       if(ray_absorbed(reflected_rays[0])) break
@@ -152,11 +152,15 @@ function ray_trace(surfaces, max, ray_len, rays, max_lives){
   return dead
 }
 // create the source rays given a source light position
-function source_rays(pos, rot, spray, num_rays){
-  return d3.range(num_rays).map(function(d){
-    var theta
-    if(num_rays > 1) theta = spray / 2 - d / (num_rays - 1) * spray - rot
+function source_rays(source, lives){
+  return d3.range(source.rays).map(function(d, i){
+    var theta, spray = source.spray, num_rays = source.rays
+      , rot = source.rotation, pos = source.position
+    if(num_rays > 1) theta = spray / 2 - d / (num_rays) * spray - rot
     else theta = - rot
-    return [ pos, [ cos(theta), sin(theta) ] ]
+    return { 
+      values: [ pos, [ cos(theta), sin(theta) ] ]
+      , lives: lives, source: source, id: i
+    }
   })
 }

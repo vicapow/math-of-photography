@@ -11,7 +11,7 @@ function rand(n){ return Math.random() * n}
 function rot(a, t){
   var x = cos(t) * a[0] - sin(t) * a[1]
     , y = sin(t) * a[0] + cos(t) * a[1]
-  return [ x, y]
+  return [x, y]
 }
 function cross(a, b){ return  a[0] * b[1] - a[1] * b[0] }
 function add(a, b){ return [ a[0] + b[0], a[1] + b[1] ] }
@@ -39,7 +39,7 @@ function intersection(q, s, p1, p2){
   // if the ray and line segment do not intersect, return null
   if( t < 0 || t > 1 || u < 0.000001 ) return null
   // if check same sign
-  if( r_cross_n * r_cross_s > 0) n = norms[0]; else n = unit(norms[1])
+  if( r_cross_n * r_cross_s > 0) n = unit(norms[1]); else n = unit(norms[0])
   // find the normal that points in the direction of incoming intersecting ray
   n = unit(n)
   // calculate angle of reflection
@@ -67,25 +67,32 @@ function next_rays(surfaces, ray){
   })).filter(function(d){ return d }).sort(function(a, b){ return a.u - b.u })[0]
   if(!intersect) return null // no new rays! :(
 
-  // angle = surface_diffusion(intersect, angle)
-  angle = intersect.aor
-  return surface_reflection(intersect, angle)
+  // the rays we'll be returning. perfect reflection ray should come first
+  var rays = [surface_reflection(intersect)]
+  rays = rays.concat(surface_diffusion(intersect, 2))
+  return rays
 }
 
 // where `angle` is an unit vector
-function surface_reflection(intersect, angle){
+function surface_reflection(intersect){
   var reflection = intersect.material && intersect.material.reflection
-  // no more bouncing around. the light should be absorbed here
-  if(rand(1) > reflection) return [[intersect.position, [0, 0]]]
-  // the ray survives to to continue on its epic journey
-  return [[intersect.position, angle]]
+  // no more bouncing around. the light should be absorbed here.
+  // the reflection direction vector `[0, 0]` is the special case.
+  if(rand(1) > reflection) return [intersect.position, [0, 0]]
+  // the ray survives to continue on its epic journey
+  return [intersect.position, intersect.aor]
 }
 // where `angle` is an unit vector
-var normal_diffusion = d3.random.normal(0, pi * 0.1)
-function surface_diffusion(intersect, angle){
+
+function surface_diffusion(intersect, max){
   var diffusion = intersect.material && intersect.material.diffusion
-  if(diffusion) angle = rot(angle, normal_diffusion())
-  return angle
+  if(!diffusion) return []
+  var count = 0, rays = [], angle
+  while(count++ < max){
+    angle = rot(intersect.normal, pi * 0.5 - rand(pi))
+    rays.push([intersect.position, angle])
+  }
+  return rays
 }
 function ray_to_segment(len, ray){
   return [ray[0], add(ray[0], scale(ray[1], len))]

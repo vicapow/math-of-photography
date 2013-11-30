@@ -75,15 +75,15 @@ surfaces.push({
 var sources = d3.range(1).map(function(d){
   return { 
     rays: 1 // number of rays the ligh source will emit
-    , rotation: pi * 0
+    , rotation: pi * 0.1
     , spray: pi * 0.2
     , position: mouse 
   }
 })
 
 // draw loop
-// d3.timer(function(){
-setInterval(function(){
+d3.timer(function(){
+// setInterval(function(){
   
   svg.selectAll('*').remove()
 

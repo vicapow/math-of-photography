@@ -3,8 +3,8 @@ var w = window.innerWidth, h = window.innerHeight
   , cos = Math.cos, sin = Math.sin
   , line = d3.svg.line()
 
-var mouse = [w/2, h/2]
-// d3.select('body').on('mousemove', function(){ mouse = d3.mouse(this) })
+var mouse = [w * 0.5, h * 0.5]
+d3.select('body').on('mousemove', function(){ mouse = d3.mouse(this) })
 
 // some common vector functions
 function rand(n){ return Math.random() * n}
@@ -58,8 +58,10 @@ function mirror(q, p1, p2, sect, material){
   return reflection(q, sect, add(sect, n))
 }
 
-function nextRay(surfaces, ray){
-  var r1 = ray[0], r2 = add(ray[0], ray[1])
+function next_rays(surfaces, ray){
+  var r1 = ray[ray.length - 2]
+    , r2 = ray[ray.length - 1]
+  r2 = add(r1, r2)
   var intersect = d3.merge(surfaces.map(function(surface){
     return surface.geometry.map(function(segment){
       var intersect = intersection(r1, r2, segment[0], segment[1])
@@ -69,13 +71,13 @@ function nextRay(surfaces, ray){
       return intersect
     })
   })).filter(function(d){ return d }).sort(function(a, b){ return a.u - b.u })[0]
-  if(!intersect) return null
+  if(!intersect) return null // no new rays! :(
 
-  var angle = mirror(r1, intersect.surface[0], intersect.surface[1], intersect.p, intersect.material)
+  var angle = mirror(r1, intersect.surface[0], intersect.surface[1]
+    , intersect.p, intersect.material)
   angle = unit(minus(angle, intersect.p))
 
   angle = surface_diffusion(intersect, angle)
-  console.log('angle', angle)
   return surface_reflection(intersect, angle)
 }
 
@@ -83,9 +85,9 @@ function nextRay(surfaces, ray){
 function surface_reflection(intersect, angle){
   var reflection = intersect.material && intersect.material.reflection
   // no more bouncing around. the light should be absorbed here
-  if(rand(1) > reflection) return [intersect.p, [0, 0]]
+  if(rand(1) > reflection) return [[intersect.p, [0, 0]]]
   // the ray survives to to continue on its epic journey
-  return [intersect.p, angle]
+  return [[intersect.p, angle]]
 }
 // where `angle` is an unit vector
 var normal_diffusion = d3.random.normal(0, pi * 0.1)
@@ -97,30 +99,66 @@ function surface_diffusion(intersect, angle){
 function ray_to_segment(len, ray){
   return [ray[0], add(ray[0], scale(ray[1], len))]
 }
-// takes a ray of the for [ position, angle ] where `position` is an [x, y] 
+// doe the ray still have a valid, none [0,0] angle on its tail? if so
+// return true
+function ray_absorbed(ray){
+  return !(ray[ray.length - 1][0] || ray[ray.length - 1][1])
+}
+
+function ray_extend_angle(ray, len){
+  // convert the trailing `angle` value to a `pos` vector
+  var pos = add(ray[ray.length - 2], scale(ray[ray.length - 1], len))
+  ray[ray.length - 1] = pos
+  return ray
+}
+// takes a `rays` of the for [ position, angle ] where `position` is an [x, y] 
 // vector array and `angle` is a unit vector angle array of the form [x, y]
 // with respect to `position`.
-// returns an array of the form [ p1, p2, p3, p4, etc... ] that specifies
+// returns an array of the form [ ray1, ray2, ray4, ray5, etc... ] that specifies
 // the path of the ray, after reflecting, refracting or diffusing off of
 // the all `surfaces` depending on their material
-function ray_trace(surfaces, max, ray_len, ray){
-  var rays = [ray[0]], count = 0
-  max = max || 200
-  while(count++ < max){
-    var next = nextRay(surfaces, ray)
-    if(!next) break
-    rays.push(next[0])
-    ray = next
+function ray_trace(surfaces, max, ray_len, rays){
+  var alive = rays.slice(0), ray, dead = [], count, reflected_rays, angle
+  while(alive.length){
+    ray = alive.pop()
+    count = 0
+    while(count++ < max){
+      // `reflected_rays` is an array of alternative [pos, angle] pairs (where 
+      // `pos` and `angle` are also arrays)
+      reflected_rays = next_rays(surfaces, ray)
+      // we never hit anything! extent to the ray `ray_len` to go appear as if
+      // going on forever.
+      if(!reflected_rays){ ray_extend_angle(ray, ray_len); break }
+      // the ray did collide with something, but nothing got reflected
+      if(!reflected_rays.length) { ray.pop(); break }
+      // NOTE: the angle is always kept at the end of the ray
+      // TODO: maybe keep it at the front?
+      ray.pop() // remove the old angle
+      // the next position. the first element of `reflected_rays` contains
+      // the ray of perfect reflection to the original `ray`
+      ray.push(reflected_rays[0][0])
+      // the recent reflected array got absorbed
+      if(ray_absorbed(reflected_rays[0])) break
+      ray.push(reflected_rays[0][1]) // the next angle
+      // add any other diffused rays to the `alive` set of rays
+      reflected_rays.forEach(function(ray, i){
+        if(i === 0) return
+        alive.push(ray)
+      })
+    }
+    if(count > max) ray.pop() // remove the old angle
+    // we had to kill the ray prematurely because it bounced too much :(
+    // lets just cap off the angle
+    dead.push(ray)
   }
-  if(!next) rays.push(add(ray[0], scale(ray[1], ray_len)))
-  return rays
+  return dead
 }
 // create the source rays given a source light position
-function source_rays(source_pos, rot, spray, num_rays){
+function source_rays(pos, rot, spray, num_rays){
   return d3.range(num_rays).map(function(d){
     var theta
     if(num_rays > 1) theta = spray / 2 - d / (num_rays - 1) * spray - rot
-    else theta = 0
-    return [ source_pos, [ cos(theta), sin(theta) ] ]
+    else theta = - rot
+    return [ pos, [ cos(theta), sin(theta) ] ]
   })
 }

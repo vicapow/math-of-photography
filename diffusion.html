@@ -58,13 +58,13 @@ var surfaces = []
 // add the back of the box
 surfaces.push({
   geometry: surface_open_box([w * 0.8, h * 0.25], [5, h / 2])
-  , material: { diffusion: 1 /* randomness */, reflection: 1 /* bounciness */ }
+  , material: { diffusion: 0.5 /* randomness */, reflection: 1 /* bounciness */ }
 })
 
 // add the pin hole
 surfaces.push({
   geometry: surface_pinhole([w * 0.5, h * 0.25], [w * 0.5, h * 0.75], 10)
-  , material: { diffusion: 0, reflection: 0 }
+  , material: { diffusion: 0.5, reflection: 0 }
 })
 
 // add a box
@@ -75,7 +75,7 @@ surfaces.push({
 var sources = d3.range(1).map(function(d){
   return { 
     rays: 1 // number of rays the ligh source will emit
-    , rotation: 0
+    , rotation: pi * 0.1
     , spray: pi * 0.2
     , position: mouse 
   }
@@ -108,8 +108,9 @@ setInterval(function(){
     var pos = source.position, rot = source.rotation, spray = source.spray
       , rays = source.rays
     return source_rays(pos, rot, spray, rays)
-      .map(ray_trace.bind(null, surfaces, 10, 1000))
   }))
+  
+  rays = ray_trace(surfaces, 20, 1000, rays)
 
   svg.append('g').selectAll('path').data(rays)
     .enter().append('path').attr({d: line, 'class': 'ray'})

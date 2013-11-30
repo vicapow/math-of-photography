@@ -89,7 +89,7 @@ function surface_diffusion(intersect, max){
   if(!diffusion) return []
   var count = 0, rays = [], angle
   while(count++ < max){
-    angle = rot(intersect.normal, pi * 0.5 - rand(pi))
+    angle = rot(intersect.normal, pi * diffusion / 2 - rand(pi * diffusion))
     rays.push([intersect.position, angle])
   }
   return rays
@@ -115,36 +115,36 @@ function ray_extend_angle(ray, len){
 // returns an array of the form [ ray1, ray2, ray4, ray5, etc... ] that specifies
 // the path of the ray, after reflecting, refracting or diffusing off of
 // the all `surfaces` depending on their material
-function ray_trace(surfaces, max, ray_len, rays){
-  var alive = rays.slice(0), ray, dead = [], count, reflected_rays, angle
+function ray_trace(surfaces, max, ray_len, rays, max_lives){
+  var ray, dead = [], count, reflected_rays, angle
+    , alive = rays.map(function(ray){ return { values: ray, lives: max_lives } })
   while(alive.length){
     ray = alive.pop()
-    count = 0
-    while(count++ < max){
+    while(ray.lives-- > 0){
       // `reflected_rays` is an array of alternative [pos, angle] pairs (where 
       // `pos` and `angle` are also arrays)
-      reflected_rays = next_rays(surfaces, ray)
+      reflected_rays = next_rays(surfaces, ray.values)
       // we never hit anything! extent to the ray `ray_len` to go appear as if
       // going on forever.
-      if(!reflected_rays){ ray_extend_angle(ray, ray_len); break }
+      if(!reflected_rays){ ray_extend_angle(ray.values, ray_len); break }
       // the ray did collide with something, but nothing got reflected
-      if(!reflected_rays.length) { ray.pop(); break }
+      if(!reflected_rays.length) { ray.values.pop(); break }
       // NOTE: the angle is always kept at the end of the ray
       // TODO: maybe keep it at the front?
-      ray.pop() // remove the old angle
+      ray.values.pop() // remove the old angle
       // the next position. the first element of `reflected_rays` contains
       // the ray of perfect reflection to the original `ray`
-      ray.push(reflected_rays[0][0])
-      // the recent reflected array got absorbed
-      if(ray_absorbed(reflected_rays[0])) break
-      ray.push(reflected_rays[0][1]) // the next angle
+      ray.values.push(reflected_rays[0][0])
       // add any other diffused rays to the `alive` set of rays
-      reflected_rays.forEach(function(ray, i){
+      reflected_rays.forEach(function(sub_ray, i){
         if(i === 0) return
-        alive.push(ray)
+        alive.push({ values: sub_ray, lives: ray.lives })
       })
+      // the recent reflected array got absorbed by the material
+      if(ray_absorbed(reflected_rays[0])) break
+      ray.values.push(reflected_rays[0][1]) // the next angle
     }
-    if(count > max) ray.pop() // remove the old angle
+    if(ray.lives <= 0) ray.values.pop() // remove the old angle
     // we had to kill the ray prematurely because it bounced too much :(
     // lets just cap off the angle
     dead.push(ray)

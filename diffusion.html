@@ -32,7 +32,7 @@
 
 var svg = d3.select('svg').attr({width: w, height: h})
   , translate = function(x,y){ return 'translate(' + x + ',' + y + ')' }
-
+  , max_lives = 3
 
 
 
@@ -58,13 +58,13 @@ var surfaces = []
 // add the back of the box
 surfaces.push({
   geometry: surface_open_box([w * 0.8, h * 0.25], [5, h / 2])
-  , material: { diffusion: 0.5 /* randomness */, reflection: 1 /* bounciness */ }
+  , material: { diffusion: 1 /* randomness */, reflection: 0 /* bounciness */ }
 })
 
 // add the pin hole
 surfaces.push({
   geometry: surface_pinhole([w * 0.5, h * 0.25], [w * 0.5, h * 0.75], 10)
-  , material: { diffusion: 0.5, reflection: 0 }
+  , material: { diffusion: 0, reflection: 1 }
 })
 
 // add a box
@@ -74,8 +74,8 @@ surfaces.push({
 
 var sources = d3.range(1).map(function(d){
   return { 
-    rays: 1 // number of rays the ligh source will emit
-    , rotation: pi * 0.1
+    rays: 100 // number of rays the ligh source will emit
+    , rotation: pi * 0.0
     , spray: pi * 0.2
     , position: mouse 
   }
@@ -109,12 +109,15 @@ d3.timer(function(){
       , rays = source.rays
     return source_rays(pos, rot, spray, rays)
   }))
-  
-  rays = ray_trace(surfaces, 20, 1000, rays)
+
+  rays = ray_trace(surfaces, 20, 2000, rays, max_lives)
 
   svg.append('g').selectAll('path').data(rays)
-    .enter().append('path').attr({d: line, 'class': 'ray'})
-}, 500)
+    .enter().append('path').attr({
+      d: function(ray){ return line(ray.values) }
+      , 'class': 'ray'
+    }).style('opacity', '0.3')
+}, 1000)
 
     </script>
   </body>

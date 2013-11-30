@@ -26,16 +26,13 @@
   <body>
     <svg></svg>
     <script src="d3.js"></script>
-    <script src="vec.js"></script>
     <script src="geo.js"></script>
+    <script src="common.js"></script>
     <script>
-var w = window.innerWidth, h = window.innerHeight
-  , max = Math.max(w, h), min = Math.min(w, h), pi = Math.PI, abs = Math.abs
-  , cos = Math.cos, sin = Math.sin
-  , svg = d3.select('svg').attr({width: w, height: h})
+
+var svg = d3.select('svg').attr({width: w, height: h})
   , translate = function(x,y){ return 'translate(' + x + ',' + y + ')' }
-  , line = d3.svg.line()
-  , n = 100, m = 0, num_rays = 50, ray_len = 10000
+
 
 
 
@@ -57,11 +54,14 @@ var surface = [
 */
 
 var surfaces = []
+
+// add the back of the box
 surfaces.push({
   geometry: surface_open_box([w * 0.8, h * 0.25], [5, h / 2])
   , material: { diffusion: 1 /* randomness */, reflection: 1 /* bounciness */ }
 })
 
+// add the pin hole
 surfaces.push({
   geometry: surface_pinhole([w * 0.5, h * 0.25], [w * 0.5, h * 0.75], 10)
   , material: { diffusion: 0, reflection: 0 }
@@ -70,27 +70,20 @@ surfaces.push({
 // add a box
 // box surrounding window
 
-var mouse = [w/2, h/2]
-d3.select('body').on('mousemove', function(){ mouse = d3.mouse(this) })
 
 
-// create the source rays given the source light positions
-function source_rays(source_pos, rot, spray){
-  return d3.range(num_rays).map(function(d){
-    var theta = spray * (d + 1) / num_rays - spray / 2 - rot
-    return [ source_pos, [ cos(theta), sin(theta) ] ]
-  })
-}
+var sources = d3.range(1).map(function(d){
+  return { 
+    rays: 1 // number of rays the ligh source will emit
+    , rotation: 0
+    , spray: pi * 0.2
+    , position: mouse 
+  }
+})
 
 // draw loop
-
-var sources_num = 1 // num_rays
-var sources_rots = //d3.range(sources_num).map(function(d){ return rand(2 * pi) })
-  d3.range(sources_num).map(function(d){ return 0 })
-var sources_spray = 
-  d3.range(sources_num).map(function(d){ return pi * 0.3 })
-
-d3.timer(function(){
+// d3.timer(function(){
+setInterval(function(){
   
   svg.selectAll('*').remove()
 
@@ -107,19 +100,20 @@ d3.timer(function(){
       })
 
   // light sources
-  var sources;
-  if(sources_num > 1) sources = points_circle(mouse, 40, sources_num)
-  else sources = [mouse.slice(0)]
+  if(sources.length > 1) points_circle(mouse, 40, sources.length)
+    .forEach(function(position, i){ sources[i].position = position })
+  else sources[0].position = mouse.slice(0)
 
-  var rays = d3.merge(sources.map(function(source, i){
-    return source_rays(source, sources_rots[i], sources_spray[i])
-      .map(ray_trace.bind(null, surfaces, 10))
+  var rays = d3.merge(sources.map(function(source){
+    var pos = source.position, rot = source.rotation, spray = source.spray
+      , rays = source.rays
+    return source_rays(pos, rot, spray, rays)
+      .map(ray_trace.bind(null, surfaces, 10, 1000))
   }))
 
   svg.append('g').selectAll('path').data(rays)
     .enter().append('path').attr({d: line, 'class': 'ray'})
-
-})
+}, 500)
 
     </script>
   </body>

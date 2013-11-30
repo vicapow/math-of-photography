@@ -23,7 +23,7 @@ function surface_pinhole(p1, p2, w){
 
 function points_circle(pos, r, n){
   return d3.range(n).map(function(d){
-    var theta = (d + 1) / n * 2 * pi
+    var theta = d / (n) * 2 * pi - pi / 2;
     return [ pos[0] + cos(theta) * r, pos[1] + sin(theta) * r ]
   })
 }

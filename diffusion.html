@@ -2,19 +2,16 @@
 <meta charset="utf-8">
 <html>
   <style>
-    body, html{ margin: 0; background-color: black;}
-    path.ray{
-      /*stroke-dasharray: 5, 4;*/
-      stroke-width: 2;
-      stroke-linejoin: bevel;
-      opacity: 1;
-      stroke: white;
+    body { margin: 0; background-color: black;}
+    circle.source{
+      fill: rgba(0,0,0,0);
     }
-    .surface{
-      stroke-width: 2;
-      stroke: green;
+    circle.pinhole.source{
+      fill: green;
     }
-
+    canvas, svg {
+      position: absolute;
+    }
   </style>
   <body>
     <script src="d3.js"></script>
@@ -23,16 +20,18 @@
     <script>
 
 var canvas = d3.select('body').append('canvas').attr({width: w, height: h})
+  , svg = d3.select('body').append('svg').attr({width: w, height: h})
   , ctx = canvas.node().getContext('2d')
   , translate = function(x,y){ return 'translate(' + x + ',' + y + ')' }
   , ray_lives = 3
-  //, color = d3.scale.linear().domain(['#000000', '#ffffff']).range([0, 1])
-  , color = [
-      'rgba(255, 0, 0, 0.05)'
-      , 'rgba(0, 255, 0, 0.05)'
-      , 'rgba(0,0, 255, 0.05)'
-    ]
-  , num_diffuse = 20
+  , alpha = 0.1
+  , targetColors = ['rgb(255,255,255)', 'rgb(255,0,0)', 'rgb(0,255,0)', 'rgb(0,0,255)']
+  , color = function(d){
+    var c = d3.rgb(targetColors[d % targetColors.length])
+    return 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',' + alpha + ')'
+  }
+  , num_diffuse = 10
+
 
 // surface is an array of line segments of the form: [p1, p2]
 // so surface looks like: [ [p1, p2], [p2, p3], ... ]
@@ -51,43 +50,62 @@ var surface = [
 ]
 */
 
+var handles = {
+  source: [w * 0.2, h * 0.5]
+  , pinhole: { p1: [w * 0.5, h * 0.1], p2: [w * 0.5, h * 0.9], width: 10 }
+}
+
+// handle drag events
+var drag = d3.behavior.drag().on('drag', function(handle){
+  d3.event.sourceEvent.stopPropagation()
+  handle[0] = d3.event.x
+  handle[1] = d3.event.y
+  d3.select(this).call(updateHandle)
+})
+
+function updateHandle(el){
+  el.attr({ cx: el.datum()[0], cy: el.datum()[1] })
+}
+
+svg.append('circle').datum(handles.source)
+  .attr({ 'class': 'source', r: 10 }).call(updateHandle).call(drag)
+
+svg.append('circle').datum(handles.pinhole.p1)
+  .attr({ 'class': 'source', r: 10 }).call(updateHandle).call(drag)
+
+svg.append('circle').datum(handles.pinhole.p2)
+  .attr({ 'class': 'source', r: 10 }).call(updateHandle).call(drag)
+
+
+// the geometry
+
 var surfaces = []
 
-// add the back of the box
-// surfaces.push({
-//   geometry: surface_open_box([w * 0.8, h * 0.1], [5, h * 0.8])
-//   , material: { diffusion: 1, reflection: 1 /* bounciness */ }
-// })
-
 surfaces.push({
-  geometry: [ [ [w * 0.7, h * 0.1], [w * 0.9, h * 0.8] ] ]
-  , material: { diffusion: 1, reflection: 1 }
+  geometry: [ [ [w * 0.6, h * 0.1], [w * 0.9, h * 0.8] ] ]
+  , material: { diffusion: 1, reflection: 0 }
 })
 
 // add the pin hole
 
 surfaces.push({
-  geometry: surface_pinhole([w * 0.5, h * 0.1], [w * 0.5, h * 0.9], 10)
+  geometry: surface_pinhole( handles.pinhole.p1, handles.pinhole.p2, 10)
   , material: { diffusion: 0, reflection: 0 }
 })
 
 
-// add top and bottom of box
-
-// add a box
-// box surrounding window
-
-
+// add the light(s)
 
 var sources = d3.range(3).map(function(d){
   return { 
-    rays: 500 // number of rays the ligh source will emit
+    rays: 800 // number of rays the ligh source will emit
     , rotation: pi * 0.0
     , spray: pi * 2
-    , position: mouse
-    , color: color[d]
+    , position: handles.source
+    , color: color(d + 1)
   }
 })
+var sources_span = 100
 
 
 ctx.fillStyle = 'black'
@@ -113,11 +131,11 @@ d3.timer(function(){
   })
   ctx.stroke()
 
-  ctx.lineWidth = 10
+  ctx.lineWidth = 1
   // light sources
-  if(sources.length > 1) points_line(mouse, 100, sources.length)
+  if(sources.length > 1) points_line(handles.source, sources_span, sources.length)
     .forEach(function(position, i){ sources[i].position = position })
-  else sources[0].position = mouse.slice(0)
+  else sources[0].position = handles.source
 
   var rays = d3.merge(sources.map(function(source){
     return source_rays(source, ray_lives)

@@ -87,10 +87,12 @@ function surface_reflection(intersect){
 function surface_diffusion(intersect, max){
   var diffusion = intersect.material && intersect.material.diffusion
   if(!diffusion) return []
-  var count = 0, rays = [], angle, spray = pi * 0.95
-  while(count++ < max){
-    angle = rot(intersect.normal, spray * 0.5 - spray * count / max )
+  if(max < 2) max = 2
+  var count = 0, rays = [], angle, spray = pi * 0.90
+  while(count < max){
+    angle = rot(intersect.normal, spray * 0.5 - spray * count / (max-1) )
     rays.push([intersect.position, angle])
+    count++
   }
   return rays
 }

@@ -53,7 +53,7 @@ function normals(p1, p2){
   return [n1, n2]
 }
 
-function next_rays(surfaces, ray){
+function next_rays(surfaces, ray, num_diffuse){
   var r1 = ray[ray.length - 2]
     , r2 = ray[ray.length - 1]
   var intersect = d3.merge(surfaces.map(function(surface){
@@ -69,7 +69,7 @@ function next_rays(surfaces, ray){
 
   // the rays we'll be returning. perfect reflection ray should come first
   var rays = [surface_reflection(intersect)]
-  rays = rays.concat(surface_diffusion(intersect, 10))
+  rays = rays.concat(surface_diffusion(intersect, num_diffuse))
   return rays
 }
 
@@ -87,9 +87,9 @@ function surface_reflection(intersect){
 function surface_diffusion(intersect, max){
   var diffusion = intersect.material && intersect.material.diffusion
   if(!diffusion) return []
-  var count = 0, rays = [], angle
+  var count = 0, rays = [], angle, spray = pi * 0.95
   while(count++ < max){
-    angle = rot(intersect.normal, pi * 0.5 - pi * 1 * count / max )
+    angle = rot(intersect.normal, spray * 0.5 - spray * count / max )
     rays.push([intersect.position, angle])
   }
   return rays
@@ -115,14 +115,14 @@ function ray_extend_angle(ray, len){
 // returns an array of the form [ ray1, ray2, ray4, ray5, etc... ] that specifies
 // the path of the ray, after reflecting, refracting or diffusing off of
 // the all `surfaces` depending on their material
-function ray_trace(surfaces, max, ray_len, alive){
+function ray_trace(surfaces, max, ray_len, alive, num_diffuse){
   var ray, dead = [], count, reflected_rays, angle
   while(alive.length){
     ray = alive.pop()
     while(ray.lives-- > 0){
       // `reflected_rays` is an array of alternative [pos, angle] pairs (where 
       // `pos` and `angle` are also arrays)
-      reflected_rays = next_rays(surfaces, ray.values)
+      reflected_rays = next_rays(surfaces, ray.values, num_diffuse)
       // we never hit anything! extent to the ray `ray_len` to go appear as if
       // going on forever.
       if(!reflected_rays){ ray_extend_angle(ray.values, ray_len); break }

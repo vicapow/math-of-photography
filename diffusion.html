@@ -3,13 +3,6 @@
 <html>
   <style>
     body, html{ margin: 0; background-color: black;}
-    circle{ fill: blue; }
-    path{ stroke: black; stroke-width: 1; fill: none;}
-    .eye line, .eye path{
-      stroke: black;
-      stroke-width: 6;
-      fill: none;
-    }
     path.ray{
       /*stroke-dasharray: 5, 4;*/
       stroke-width: 2;
@@ -24,18 +17,22 @@
 
   </style>
   <body>
-    <svg></svg>
     <script src="d3.js"></script>
     <script src="geo.js"></script>
     <script src="common.js"></script>
     <script>
 
-var svg = d3.select('svg').attr({width: w, height: h})
+var canvas = d3.select('body').append('canvas').attr({width: w, height: h})
+  , ctx = canvas.node().getContext('2d')
   , translate = function(x,y){ return 'translate(' + x + ',' + y + ')' }
   , ray_lives = 3
   //, color = d3.scale.linear().domain(['#000000', '#ffffff']).range([0, 1])
-  , color = d3.scale.category10()
-
+  , color = [
+      'rgba(255, 0, 0, 0.05)'
+      , 'rgba(0, 255, 0, 0.05)'
+      , 'rgba(0,0, 255, 0.05)'
+    ]
+  , num_diffuse = 20
 
 // surface is an array of line segments of the form: [p1, p2]
 // so surface looks like: [ [p1, p2], [p2, p3], ... ]
@@ -57,52 +54,68 @@ var surface = [
 var surfaces = []
 
 // add the back of the box
+// surfaces.push({
+//   geometry: surface_open_box([w * 0.8, h * 0.1], [5, h * 0.8])
+//   , material: { diffusion: 1, reflection: 1 /* bounciness */ }
+// })
+
 surfaces.push({
-  geometry: surface_open_box([w * 0.8, h * 0.1], [5, h * 0.8])
-  , material: { diffusion: 1 /* randomness */, reflection: 0 /* bounciness */ }
+  geometry: [ [ [w * 0.7, h * 0.1], [w * 0.9, h * 0.8] ] ]
+  , material: { diffusion: 1, reflection: 1 }
 })
 
 // add the pin hole
-// surfaces.push({
-//   geometry: surface_pinhole([w * 0.5, h * 0.1], [w * 0.5, h * 0.9], 10)
-//   , material: { diffusion: 1, reflection: 0 }
-// })
+
+surfaces.push({
+  geometry: surface_pinhole([w * 0.5, h * 0.1], [w * 0.5, h * 0.9], 10)
+  , material: { diffusion: 0, reflection: 0 }
+})
+
+
+// add top and bottom of box
 
 // add a box
 // box surrounding window
 
 
 
-var sources = d3.range(1).map(function(d){
+var sources = d3.range(3).map(function(d){
   return { 
-    rays: 50 // number of rays the ligh source will emit
+    rays: 500 // number of rays the ligh source will emit
     , rotation: pi * 0.0
     , spray: pi * 2
     , position: mouse
-    , color: color(d)
+    , color: color[d]
   }
 })
+
+
+ctx.fillStyle = 'black'
+ctx.strokeStyle = 'red'
 
 // draw loop
 d3.timer(function(){
 // setInterval(function(){
+  // clear the bg
+  ctx.globalCompositeOperation = 'source-over'
+  ctx.fillRect(0, 0, w, h)
+  ctx.globalCompositeOperation = 'lighter'
   
-  svg.selectAll('*').remove()
+  // draw the surfaces
+  ctx.lineWidth = 1
+  ctx.strokeStyle = 'green' // color them green
+  ctx.beginPath()
+  surfaces.forEach(function(surface){
+    surface.geometry.forEach(function(segment){
+      ctx.moveTo(segment[0][0], segment[0][1])
+      ctx.lineTo(segment[1][0], segment[1][1])
+    })
+  })
+  ctx.stroke()
 
-  svg.append('g').selectAll('g').data(surfaces).enter()
-    .append('g').selectAll('line')
-      .data(function(d){ return d.geometry })
-      .enter().append('line')
-      .attr({ 
-        'class': 'surface'
-        , x1: function(d){ return d[0][0] }
-        , y1: function(d){ return d[0][1] }
-        , x2: function(d){ return d[1][0] }
-        , y2: function(d){ return d[1][1] }
-      })
-
+  ctx.lineWidth = 10
   // light sources
-  if(sources.length > 1) points_line(mouse, 300, sources.length)
+  if(sources.length > 1) points_line(mouse, 100, sources.length)
     .forEach(function(position, i){ sources[i].position = position })
   else sources[0].position = mouse.slice(0)
 
@@ -110,14 +123,22 @@ d3.timer(function(){
     return source_rays(source, ray_lives)
   }))
 
-  rays = ray_trace(surfaces, 20, 2000, rays)
+  rays = ray_trace(surfaces, 20, 2000, rays, num_diffuse)
 
-  svg.append('g').selectAll('path').data(rays)
-    .enter().append('path').attr({
-      d: function(ray){ return line(ray.values) }
-      , 'class': 'ray'
-    }).style({ opacity: 0.3, stroke: function(ray){ return ray.source.color } })
-}, 1000)
+  // color the rays
+
+  rays.forEach(function(ray){
+    // ray.source.color
+    ctx.strokeStyle = ray.source.color
+    ctx.beginPath()
+    ray.values.forEach(function(p, i){
+      if(i === 0) ctx.moveTo(Math.round(p[0]) + 0.5, Math.round(p[1]) + 0.5)
+      else ctx.lineTo(Math.round(p[0]) + 0.5,Math.round(p[1]) + 0.5)
+    })
+    ctx.stroke()
+  })
+
+}, 100)
 
     </script>
   </body>

@@ -13,6 +13,39 @@ function rot(a, t){
     , y = sin(t) * a[0] + cos(t) * a[1]
   return [x, y]
 }
+function angle(a){ return -Math.atan2(a[1], a[0]) }
+// angle between a and b, counter-clockwise
+function angle_between(a, b){
+  if(a < 0) a += 2 * pi
+  if(b < 0) b += 2 * pi
+  if(b < a) b += 2 * pi
+  return b - a
+}
+function angle_min_between(a, b){
+  a = unit(a); b = unit(b); var flip = 1
+  if(cross(a, b) > 0) flip = -1
+  b[1] = flip * b[1]
+  return flip * Math.acos(dot(a, b) / len(a) * len(b))
+}
+function angle_cap(p1, a, b){
+  var c = angle(p1), l = len(p1)
+  // all go from [0, 2pi]
+  if(a < 0) a += 2 * pi
+  if(b < 0) b += 2 * pi
+  if(c < 0) c += 2 * pi
+  c = c - a
+  b = b - a
+  // in range
+  if(c <= b) c = c
+  // out of range but closer to b
+  else if(c - b < 2 * pi - c) c = b
+  // out of range but closer to a
+  else c = 0
+  var vec = rot([l, 0], c + a)
+  vec[1] = - vec[1] // y is down for screen coordinate space
+  return vec
+}
+function sign(a){ if(a === 0) return 0; return a / Math.abs(a) }
 function cross(a, b){ return  a[0] * b[1] - a[1] * b[0] }
 function add(a, b){ return [ a[0] + b[0], a[1] + b[1] ] }
 function minus(a, b){ return [ a[0] - b[0], a[1] - b[1] ] }

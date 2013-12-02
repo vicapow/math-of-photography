@@ -35,3 +35,21 @@ function points_line(pos, h, n){
     return [ pos[0], pos[1] + step * h - h * 0.5 ]
   })
 }
+
+function pair(points){
+  return points.map(function(p, i){
+    if(i === 0) return null
+    return [ points[i - 1], p ]
+  }).splice(1)
+}
+
+function points_line_diffuse(p1, p2, w, n, m){
+  var t = minus(p2, p1)
+  var normal = unit(normals(p1, p2)[0])
+  return pair(d3.range(n-1).map(function(d){
+    var step
+    if(n > 1) step = d / (n - 1); else step = 0
+    var gitter = scale(normal, rand(m))
+    return add(add(p1, scale(t, step)), gitter)
+  }))
+}

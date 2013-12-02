@@ -9,6 +9,21 @@
     circle.pinhole.source{
       fill: green;
     }
+    .handle{
+      cursor: pointer;
+    }
+    .handle .nob{
+      fill: white;
+      opacity: 1;
+    }
+    .handle circle{
+      fill: rgba(0,0,0,0);
+      stroke: none;
+    }
+    .handle circle{
+      fill: rgba(0, 0, 0, 0.2);
+      stroke: rgba(0, 0, 0, 0.2);
+    }
     canvas, svg {
       position: absolute;
     }
@@ -22,94 +37,115 @@
 var canvas = d3.select('body').append('canvas').attr({width: w, height: h})
   , svg = d3.select('body').append('svg').attr({width: w, height: h})
   , ctx = canvas.node().getContext('2d')
-  , translate = function(x,y){ return 'translate(' + x + ',' + y + ')' }
-  , ray_lives = 3
-  , alpha = 0.1
-  , targetColors = ['rgb(255,255,255)', 'rgb(255,0,0)', 'rgb(0,255,0)', 'rgb(0,0,255)']
+  , pos_circle = function(pos){
+      return function(circle){ circle.attr({ cx: pos[0], cy: pos[1] }) }
+    }
+  , trans_str = function(x,y){ return 'translate(' + x + ',' + y + ')' }
+  , translate = function(pos){
+    return function(g){ g.attr('transform', trans_str.apply(this, pos)) }
+  }
+  , ray_lives = 10
+  , alpha = 0.05
+  , targetColors = ['rgb(255,255,255)', 'rgb(255,0,0)', 'rgb(0,255,0)'
+    , 'rgb(0,0,255)']
   , color = function(d){
     var c = d3.rgb(targetColors[d % targetColors.length])
     return 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',' + alpha + ')'
   }
-  , num_diffuse = 10
-
-
-// surface is an array of line segments of the form: [p1, p2]
-// so surface looks like: [ [p1, p2], [p2, p3], ... ]
-// where each `p*` is a ponit, described as a 2 element array. ie., [343, 253]
-/*
-var surface = [
-  [ // line segment 1
-      [ p1x, p2y ]
-    , [ p2x, p2y ]
-  ]
-  , [ // line segment 2
-      [ p2x, p2y ]
-    , [ p3x, p3y ]
-  ]
-  etc...
-]
-*/
-
-var handles = {
-  source: [w * 0.2, h * 0.5]
-  , pinhole: { p1: [w * 0.5, h * 0.1], p2: [w * 0.5, h * 0.9], width: 10 }
-}
-
-// handle drag events
-var drag = d3.behavior.drag().on('drag', function(handle){
-  d3.event.sourceEvent.stopPropagation()
-  handle[0] = d3.event.x
-  handle[1] = d3.event.y
-  d3.select(this).call(updateHandle)
-})
-
-function updateHandle(el){
-  el.attr({ cx: el.datum()[0], cy: el.datum()[1] })
-}
-
-svg.append('circle').datum(handles.source)
-  .attr({ 'class': 'source', r: 10 }).call(updateHandle).call(drag)
-
-svg.append('circle').datum(handles.pinhole.p1)
-  .attr({ 'class': 'source', r: 10 }).call(updateHandle).call(drag)
-
-svg.append('circle').datum(handles.pinhole.p2)
-  .attr({ 'class': 'source', r: 10 }).call(updateHandle).call(drag)
+  , num_diffuse = 0
 
 
 // the geometry
 
-var surfaces = []
-
-surfaces.push({
-  geometry: [ [ [w * 0.6, h * 0.1], [w * 0.9, h * 0.8] ] ]
-  , material: { diffusion: 1, reflection: 0 }
-})
-
-// add the pin hole
-
-surfaces.push({
-  geometry: surface_pinhole( handles.pinhole.p1, handles.pinhole.p2, 10)
-  , material: { diffusion: 0, reflection: 0 }
-})
-
+var surfaces = [
+  {
+    geometry: points_line_diffuse([w * 0.8, h * 0.1], [w * 0.8, h * 0.9]
+      , w / 2, 100, 10)
+    , material: { diffusion: 0, reflection: 1 }
+  }
+]
 
 // add the light(s)
 
-var sources = d3.range(3).map(function(d){
+var sources = d3.range(1).map(function(d){
   return { 
-    rays: 800 // number of rays the ligh source will emit
-    , rotation: pi * 0.0
-    , spray: pi * 2
-    , position: handles.source
-    , color: color(d + 1)
+    rays: 10 // number of rays the ligh source will emit
+    , rotation: pi * 0
+    , spray: pi * 0.1
+    , position: [ w * 0.25, h * 0.5]
+    , color: 'rgba(255,255,255,0.3)' //color(d + 1)
   }
 })
-var sources_span = 100
+
+function transform_update(g){
+  g.attr('transform', function(d){
+    return 'translate(' + d.position[0] + ',' + d.position[1] + ')'
+      + ' rotate(' + ( -d.rotation * 180 / pi) + ') '
+  })
+}
+
+svg.selectAll('g.handle').data(sources).enter().append('g')
+  .attr('class', 'handle').call(transform_update).call(function(){
+    this.each(function(){ setup_handle(d3.select(this)) })
+  })
+
+function setup_handle(handle){
+  var datum = handle.datum()
+    , g = handle.append('g').attr('class', 'controls')
+    , normal_radius = 100
+    , radius = normal_radius
+    , prev_rays = datum.rays
+    , arc = d3.svg.arc()
+    , update_outline = function(outline){
+        outline.attr('d', arc.innerRadius(radius - 2).outerRadius(radius + 2))
+    }
+  // add invsibile the position circle
+  g.append('circle').attr({r:radius})
+    .call(d3.behavior.drag().on("drag", function(){
+      datum.position = mouse
+      handle.call(transform_update)
+    }).on('dragstart', function(){ d3.select(this).classed('active', true)})
+    .on('dragend', function(){ d3.select(this).classed('active', false) }))
+  // create the outline border
+  var outline = g.append('path').datum({ startAngle: pi/2, endAngle: -pi*2 })
+    .style('opacity', '0.2').style('fill', 'white').call(update_outline)
+  // `spray` and `ray number` nob
+  g.append('circle').call(pos_circle(rot([radius, 0], - datum.spray / 2)))
+    .attr('r', 5).attr('class', 'nob spray')
+    .call(d3.behavior.drag().on('dragstart', function(){
+      prev_rays = datum.rays
+    }).on('drag', function(){
+      var pos = angle_cap(d3.mouse(this), 0, pi)
+      datum.spray = angle(pos) * 2
+      radius = len(pos)
+      update_outline(outline)
+      datum.rays = prev_rays + radius - normal_radius
+      if(datum.rays < 0) datum.rays = 1
+      d3.select(this).call(pos_circle(pos))
+      // hide the rotation nob when the sray nob exceeds 359 degrees
+      handle.select('.nob.rotation')
+        .style('opacity', datum.spray >= 2 * pi ? 0 : 1)
+    }).on('dragend', function(){
+      prev_radius = radius = normal_radius
+      update_outline(outline)
+      var pos = scale(unit(angle_cap(d3.mouse(this), 0, pi)), radius)
+      d3.select(this).call(pos_circle(pos))
+    }))
+  // rotation nob
+  g.append('circle').call(pos_circle([-radius * 0.5, 0]))
+    .attr('r', 10).attr('class', 'nob rotation')
+    .call(d3.behavior.drag().on('drag', function(){
+      var pos = minus(d3.mouse(svg.node()), datum.position)
+      datum.rotation = angle(pos) + pi
+      handle.call(transform_update)
+    }))
+}
+
+// slider
+svg.append('g')
 
 
 ctx.fillStyle = 'black'
-ctx.strokeStyle = 'red'
 
 // draw loop
 d3.timer(function(){
@@ -132,10 +168,6 @@ d3.timer(function(){
   ctx.stroke()
 
   ctx.lineWidth = 1
-  // light sources
-  if(sources.length > 1) points_line(handles.source, sources_span, sources.length)
-    .forEach(function(position, i){ sources[i].position = position })
-  else sources[0].position = handles.source
 
   var rays = d3.merge(sources.map(function(source){
     return source_rays(source, ray_lives)
@@ -155,8 +187,7 @@ d3.timer(function(){
     })
     ctx.stroke()
   })
-
-}, 100)
+}, 500)
 
     </script>
   </body>

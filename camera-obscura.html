@@ -1,92 +1,162 @@
 <!DOCTYPE html>
-<!-- eventually: http://bl.ocks.org/mbostock/5649592 -->
 <meta charset="utf-8">
 <html>
   <style>
-    body, html{ margin: 0;}
-    path{ stroke: black; stroke-width: 4; fill: none;}
-    .eye line, .eye path{
-      stroke: black;
-      stroke-width: 6;
-      fill: none;
+    body { margin: 0; background-color: black;}
+    circle.source{
+      fill: rgba(0,0,0,0);
     }
-    path.ray{
-      stroke-dasharray: 5, 4;
-      stroke-width: 1;
+    circle.pinhole.source{
+      fill: green;
+    }
+    canvas, svg {
+      position: absolute;
     }
   </style>
   <body>
-    <svg>
-      <g class="eye">
-        <line x1="-126" y1="-48" x2="0" y2="0"/>
-        <line x1="0" y1="0" x2="-126" y2="48"/>
-        <path d="M-111.001-41.998c-23.195,0-41.998,18.803-41.998,41.998
-          s18.803,41.998,41.998,41.998"/>
-        <path d="M-150.999,14c4.05,0,5.333-6.268,5.333-14s-1.283-14-5.333-14"/>
-      </g>
-    </svg>
     <script src="d3.js"></script>
+    <script src="geo.js"></script>
+    <script src="common.js"></script>
     <script>
-var w = window.innerWidth, h = window.innerHeight
-  , max = Math.max(w, h), min = Math.min(w, h)
-  , svg = d3.select('svg').attr({width: w, height: h})
-  , pi = Math.PI, cos = Math.cos, sin = Math.sin
+
+var canvas = d3.select('body').append('canvas').attr({width: w, height: h})
+  , svg = d3.select('body').append('svg').attr({width: w, height: h})
+  , ctx = canvas.node().getContext('2d')
   , translate = function(x,y){ return 'translate(' + x + ',' + y + ')' }
-  , line = d3.svg.line()
-  , prop = function(prop){ return function(d){ return d[prop] } }
-  , ray = d3.svg.line().x(prop('cx')).y(prop('cy'))
-  , color = d3.scale.category10()
-  , attr = function(attributes){ 
-      var obj = {}; attributes.forEach(function(attribute){ 
-        obj[attribute] = prop(attribute)
-      }); return obj
-    }
-  , eye = svg.select('.eye')
-    .attr('transform', translate(w * 0.5, h * 0.2) + 'scale(-0.5) rotate(45)')
-  , box = svg.append('g').attr('transform', translate(w * 0.75, h * 0.5))
-      .call(function(w, h, g){
-        g.append('path').datum([
-            [ -w / 2, -h / 2 ]
-          , [  w / 2, -h / 2 ]
-          , [  w / 2,  h / 2 ]
-          , [ -w / 2,  h / 2 ]
-        ]).attr('d', line)
-      }.bind(null, 10, h / 2))
-  , lights_span = h / 2, lights_r = 10
-  , lights_data = d3.range(3).map(function(d, i, data){
-    return {
-      fill: color(i)
-      ,  cx: w * 0.2
-      ,  cy: i / (data.length - 1) * lights_span - lights_span / 2 + h * 0.5
-      ,   r: lights_r
-      , 'class': 'light'
-    }
-  })
-  , light = svg.selectAll('circle.light').data(lights_data)
-      .enter().append('circle').attr(attr(['r', 'cx','cy','fill','class']))
-  , wall_span = lights_span
-  , wall_points = d3.range(10).map(function(d, i, data){ return { 
-         cx: w * 0.75 + 5
-      ,  cy: i / (data.length - 1) * wall_span - wall_span / 2 + h * 0.5
-    }})
+  , ray_lives = 3
+  , alpha = 0.1
+  , targetColors = ['rgb(255,255,255)', 'rgb(255,0,0)', 'rgb(0,255,0)', 'rgb(0,0,255)']
+  , color = function(d){
+    var c = d3.rgb(targetColors[d % targetColors.length])
+    return 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',' + alpha + ')'
+  }
+  , num_diffuse = 10
 
 
-svg.selectAll('path.ray').data(wall_points.map(function(p){
-  return [lights_data[0], p]
-})).enter().append('path').attr({'class': 'ray ray1', d: ray })
+// surface is an array of line segments of the form: [p1, p2]
+// so surface looks like: [ [p1, p2], [p2, p3], ... ]
+// where each `p*` is a ponit, described as a 2 element array. ie., [343, 253]
+/*
+var surface = [
+  [ // line segment 1
+      [ p1x, p2y ]
+    , [ p2x, p2y ]
+  ]
+  , [ // line segment 2
+      [ p2x, p2y ]
+    , [ p3x, p3y ]
+  ]
+  etc...
+]
+*/
 
-var offwall_lines = d3.merge(wall_points.map(function(p){
-    return d3.range(20).map(function(d, i, data){
-      var a = pi * 0.8
-      var th = pi - a / 2  + d / ( data.length - 1) * a , s = 200
-      return [ p , { cx: p.cx + cos(th) * s, cy: p.cy + sin(th) *s } ]
+var handles = {
+  source: [w * 0.2, h * 0.5]
+  , pinhole: { p1: [w * 0.5, h * 0.1], p2: [w * 0.5, h * 0.9], width: 10 }
+}
+
+// handle drag events
+var drag = d3.behavior.drag().on('drag', function(handle){
+  d3.event.sourceEvent.stopPropagation()
+  handle[0] = d3.event.x
+  handle[1] = d3.event.y
+  d3.select(this).call(updateHandle)
+})
+
+function updateHandle(el){
+  el.attr({ cx: el.datum()[0], cy: el.datum()[1] })
+}
+
+svg.append('circle').datum(handles.source)
+  .attr({ 'class': 'source', r: 10 }).call(updateHandle).call(drag)
+
+svg.append('circle').datum(handles.pinhole.p1)
+  .attr({ 'class': 'source', r: 10 }).call(updateHandle).call(drag)
+
+svg.append('circle').datum(handles.pinhole.p2)
+  .attr({ 'class': 'source', r: 10 }).call(updateHandle).call(drag)
+
+
+// the geometry
+
+var surfaces = []
+
+surfaces.push({
+  geometry: [ [ [w * 0.6, h * 0.1], [w * 0.9, h * 0.8] ] ]
+  , material: { diffusion: 1, reflection: 0 }
+})
+
+// add the pin hole
+
+surfaces.push({
+  geometry: surface_pinhole( handles.pinhole.p1, handles.pinhole.p2, 10)
+  , material: { diffusion: 0, reflection: 0 }
+})
+
+
+// add the light(s)
+
+var sources = d3.range(3).map(function(d){
+  return { 
+    rays: 800 // number of rays the ligh source will emit
+    , rotation: pi * 0.0
+    , spray: pi * 2
+    , position: handles.source
+    , color: color(d + 1)
+  }
+})
+var sources_span = 100
+
+
+ctx.fillStyle = 'black'
+ctx.strokeStyle = 'red'
+
+// draw loop
+d3.timer(function(){
+// setInterval(function(){
+  // clear the bg
+  ctx.globalCompositeOperation = 'source-over'
+  ctx.fillRect(0, 0, w, h)
+  ctx.globalCompositeOperation = 'lighter'
+  
+  // draw the surfaces
+  ctx.lineWidth = 1
+  ctx.strokeStyle = 'green' // color them green
+  ctx.beginPath()
+  surfaces.forEach(function(surface){
+    surface.geometry.forEach(function(segment){
+      ctx.moveTo(segment[0][0], segment[0][1])
+      ctx.lineTo(segment[1][0], segment[1][1])
     })
+  })
+  ctx.stroke()
+
+  ctx.lineWidth = 1
+  // light sources
+  if(sources.length > 1) points_line(handles.source, sources_span, sources.length)
+    .forEach(function(position, i){ sources[i].position = position })
+  else sources[0].position = handles.source
+
+  var rays = d3.merge(sources.map(function(source){
+    return source_rays(source, ray_lives)
   }))
 
-svg.selectAll('path.ray.ray2').data(offwall_lines).enter().append('path')
-  .attr({'class': 'ray ray2', d: ray })
+  rays = ray_trace(surfaces, 20, 2000, rays, num_diffuse)
 
-//svg.('path').datum([lights_data[0], wall_points[3]]).attr('d', ray)
+  // color the rays
+
+  rays.forEach(function(ray){
+    // ray.source.color
+    ctx.strokeStyle = ray.source.color
+    ctx.beginPath()
+    ray.values.forEach(function(p, i){
+      if(i === 0) ctx.moveTo(Math.round(p[0]) + 0.5, Math.round(p[1]) + 0.5)
+      else ctx.lineTo(Math.round(p[0]) + 0.5,Math.round(p[1]) + 0.5)
+    })
+    ctx.stroke()
+  })
+
+}, 100)
 
     </script>
   </body>

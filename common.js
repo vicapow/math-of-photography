@@ -49,6 +49,7 @@ function sign(a){ if(a === 0) return 0; return a / Math.abs(a) }
 function cross(a, b){ return  a[0] * b[1] - a[1] * b[0] }
 function add(a, b){ return [ a[0] + b[0], a[1] + b[1] ] }
 function minus(a, b){ return [ a[0] - b[0], a[1] - b[1] ] }
+function midpoint(a, b){ return [ (a[0] + b[0]) * 0.5, (a[1] + b[1]) * 0.5 ] }
 function scale(a, s){ return [ a[0] * s, a[1] * s ] }
 function len(a){ return Math.sqrt(a[0]*a[0] + a[1]*a[1]) }
 function dot(a, b){ return a[0] * b[0] + a[1] * b[1] }

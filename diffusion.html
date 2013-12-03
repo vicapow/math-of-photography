@@ -75,9 +75,15 @@ var surface_scale = (function surface(){
   function scale_about(p1, p2, s){
     return add(scale(minus(p2, p1), s), p2)
   }
+  // flatten the center segments. makes max zoom more instructive
+  surface[n/2 - 1][0][0] = p1[0]
+  surface[n/2 - 1][1][0] = p1[0]
+  surface[n/2    ][0][0] = p1[0]
+  surface[n/2    ][1][0] = p1[0]
   return function surface_scale(t){
     // r => target number of visible segments
-    var r = Math.round(n * t); if((r % 2)) r = r - 1; if(r < 0) r = 1
+    var r = Math.round(n * t); if((r % 2)) r = r - 1; if(r < 2) r = 2
+
     var start = n / 2 - r/2, end = start + r
       , sub_surface = surface.slice(start, end)
       , scale = surface.length / sub_surface.length

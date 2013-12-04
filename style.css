@@ -1,0 +1,32 @@
+    body { margin: 0; background-color: black;}
+    circle.source{
+      fill: rgba(0,0,0,0);
+    }
+    circle.pinhole.source{
+      fill: green;
+    }
+    .handle{
+      cursor: pointer;
+    }
+    .handle .nob{
+      fill: white;
+      opacity: 1;
+      stroke: rgba(0, 0, 0, 0.5);
+    }
+    .handle circle.shadow{
+      fill: rgba(0, 0, 0, 0.0);
+      stroke: rgba(0, 0, 0, 0.0);
+      pointer-events: none;
+    }
+    .light{
+      opacity: 0.2;
+      fill: white;
+    }
+    line.light{
+      stroke: white;
+      fill: none;
+      stroke-width: 5;
+    }
+    canvas, svg {
+      position: absolute;
+    }

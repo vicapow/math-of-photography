@@ -200,3 +200,175 @@ function source_rays(source, lives){
     }
   })
 }
+function pos_circle(pos){
+  return function(circle){ circle.attr({ cx: pos[0], cy: pos[1] }) }
+}
+function trans_str(x,y){ return 'translate(' + x + ',' + y + ')' }
+
+function translate(pos){
+  return function(g){ g.attr('transform', trans_str.apply(this, pos)) }
+}
+
+var color = (function color(alpha){
+  var colors = ['rgb(255,0,0)', 'rgb(0,255,0)', 'rgb(0,0,255)']
+  return function(d){
+    var c = d3.rgb(colors[d % colors.length])
+    return 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',' + alpha + ')'
+  }
+})(1)
+
+function transform(g){
+  g.attr('transform', function(d){
+    return 'translate(' + d.position[0] + ',' + d.position[1] + ')'
+      + ' rotate(' + ( -d.rotation * 180 / pi) + ') '
+  })
+}
+
+function setup_handle(handle){
+  var datum = handle.datum()
+    , g = handle.append('g').attr('class', 'controls')
+    , normal_radius = 50
+    , radius = normal_radius
+    , prev_rays = datum.rays
+    , arc = d3.svg.arc()
+    , update_outline = function(outline){
+        outline.attr('d', arc.innerRadius(radius - 2).outerRadius(radius + 2))
+    }
+    , dragging = false
+  handle.on('mouseout', function(){
+    if(is_child(handle.node(), d3.event.relatedTarget) || dragging) return
+    radius = 10
+    outline.transition().call(update_outline)
+    shadow.transition().attr('r', radius)
+    nob1.transition().attr({cx: 0, cy: 0})
+    nob2.transition().attr({cx: 0, cy: 0})
+  })
+  // add and position the invisible bg circle
+  g.append('circle').attr({r:radius + 20})
+    .style('fill','rgba(0,0,0,0.0)')
+    .call(d3.behavior.drag()
+      .on("drag", function(){
+        datum.position = mouse
+        handle.call(transform)
+      })
+      .on('dragstart', function(){ dragging = true })
+      .on('dragend', function(){ dragging = false })
+    ).on('mouseover', function(){
+      if(is_child(handle, d3.event.relatedTarget) || dragging) return
+      radius = normal_radius
+      outline.transition().call(update_outline)
+      shadow.transition().attr('r', radius)
+      nob1.transition().call(pos_circle(rot([radius, 0], - datum.spray / 2)))
+      nob2.transition().call(pos_circle([-radius * 0.5, 0]))
+    })
+  var shadow = g.append('circle').attr({'class': 'shadow', r: radius})
+  // create the outline border
+  var outline = g.append('path').datum({ startAngle: pi/2, endAngle: -pi*2 })
+    .attr('class', 'light').call(update_outline)
+    .style('pointer-events','none')
+  // `spray` and `ray number` nob
+  var nob1 = g.append('circle')
+    .call(pos_circle(rot([radius, 0], - datum.spray / 2)))
+    .attr('r', 5).attr('class', 'nob spray')
+    .call(d3.behavior.drag().on('dragstart', function(){
+      prev_rays = datum.rays; dragging = true
+    }).on('drag', function(){
+      var pos = angle_cap(d3.mouse(this), 0, pi)
+      datum.spray = angle(pos) * 2
+      radius = len(pos)
+      update_outline(outline)
+      var min_scale = Math.max(prev_rays, 100)
+      datum.rays = prev_rays + min_scale * (radius - normal_radius) / radius
+      if(datum.rays < 0) datum.rays = 1
+      d3.select(this).call(pos_circle(pos))
+      // hide the rotation nob when the sray nob exceeds 359 degrees
+      handle.select('.nob.rotation')
+        .style('opacity', datum.spray >= 2 * pi ? 0 : 1)
+    }).on('dragend', function(){
+      dragging = false
+      prev_radius = radius = normal_radius
+      update_outline(outline)
+      var pos = scale(unit(angle_cap(d3.mouse(this), 0, pi)), radius)
+      d3.select(this).call(pos_circle(pos))
+    }))
+  // rotation nob
+  var nob2 = g.append('circle').call(pos_circle([-radius * 0.5, 0]))
+    .attr('r', 10).attr('class', 'nob rotation')
+    .call(d3.behavior.drag().on('drag', function(){
+      var pos = minus(d3.mouse(svg.node()), datum.position)
+      datum.rotation = angle(pos) + pi
+      handle.call(transform)
+    }))
+}
+
+function is_child(parent, node){
+  if(!node || !node.parentElement) return false
+  if(node.parentElement === parent) return true
+  return is_child(parent, node.parentElement)
+}
+
+// slider
+function slider(g){
+  return g.attr('class', 'handle').call(function(g){
+    var d = g.datum(), x = 0
+    if(!d.value) d.value = d.min
+    g.append('line').attr({ x1: -d.length/2, y1: 0, x2: d.length/2, y2: 0 })
+      .attr('class', 'light')
+    var nob = g.append('circle').attr({r: 5, 'class': 'nob'}).call(pos)
+    g.call(d3.behavior.drag().on('drag', function(){
+      x = d3.mouse(nob.node())[0], m = d.length / 2, prev = d.value
+      if(x < -m) x = -m; else if(x > m) x = m
+      d.value = (x + m) / d.length * (d.max - d.min) + d.min
+      if(d.step) d.value = Math.round(d.value)
+      if(d.value === prev) return
+      if(d.cb) d.cb(d.value)
+      surface_scale(slider_n.datum().value)
+      nob.call(pos)
+    }))
+    function pos(nob){ nob.call(pos_circle([x, 0])) }
+  })
+}
+
+function setup_tracer(ctx){
+  ctx.fillStyle = 'black'
+  // draw loop
+  d3.timer(function(){
+    // clear the bg
+    ctx.globalCompositeOperation = 'source-over'
+    ctx.fillRect(0, 0, w, h)
+    ctx.globalCompositeOperation = 'lighter'
+    
+    // draw the surfaces
+    ctx.lineWidth = 1
+    ctx.strokeStyle = 'green' // color them green
+    ctx.beginPath()
+    surfaces.forEach(function(surface){
+      surface.geometry.forEach(function(segment){
+        ctx.moveTo(segment[0][0], segment[0][1])
+        ctx.lineTo(segment[1][0], segment[1][1])
+      })
+    })
+    ctx.stroke()
+
+    ctx.lineWidth = 1
+
+    var rays = d3.merge(sources.map(function(source){
+      return source_rays(source, ray_lives)
+    }))
+
+    rays = ray_trace(surfaces, 20, 2000, rays, num_diffuse)
+
+    // color the rays
+
+    rays.forEach(function(ray){
+      // ray.source.color
+      ctx.strokeStyle = ray.source.color
+      ctx.beginPath()
+      ray.values.forEach(function(p, i){
+        if(i === 0) ctx.moveTo(Math.round(p[0]) + 0.5, Math.round(p[1]) + 0.5)
+        else ctx.lineTo(Math.round(p[0]) + 0.5,Math.round(p[1]) + 0.5)
+      })
+      ctx.stroke()
+    })
+  })
+}
